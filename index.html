@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Postulaciones Costa Croata</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏖️ WorkWave Coast</h1>
+            <p>Postula para trabajos en hotelería y gastronomía en la costa croata</p>
+        </header>
+
+        <main>
+            <form id="applicationForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="nombre">Nombre *</label>
+                    <input type="text" id="nombre" name="nombre" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="apellido">Apellido *</label>
+                    <input type="text" id="apellido" name="apellido" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nacionalidad">Nacionalidad *</label>
+                    <select id="nacionalidad" name="nacionalidad" required>
+                        <option value="">Selecciona tu nacionalidad</option>
+                        <option value="España">España</option>
+                        <option value="Argentina">Argentina</option>
+                        <option value="México">México</option>
+                        <option value="Colombia">Colombia</option>
+                        <option value="Chile">Chile</option>
+                        <option value="Perú">Perú</option>
+                        <option value="Uruguay">Uruguay</option>
+                        <option value="Venezuela">Venezuela</option>
+                        <option value="Ecuador">Ecuador</option>
+                        <option value="Bolivia">Bolivia</option>
+                        <option value="Paraguay">Paraguay</option>
+                        <option value="Croacia">Croacia</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="puesto">Puesto al que aplicas *</label>
+                    <select id="puesto" name="puesto" required>
+                        <option value="">Selecciona un puesto</option>
+                        <optgroup label="Hotelería">
+                            <option value="Recepcionista">Recepcionista</option>
+                            <option value="Conserje">Conserje</option>
+                            <option value="Housekeeping">Housekeeping</option>
+                            <option value="Mantenimiento">Mantenimiento</option>
+                            <option value="Animador turístico">Animador turístico</option>
+                        </optgroup>
+                        <optgroup label="Gastronomía">
+                            <option value="Camarero/a">Camarero/a</option>
+                            <option value="Cocinero/a">Cocinero/a</option>
+                            <option value="Ayudante de cocina">Ayudante de cocina</option>
+                            <option value="Barista">Barista</option>
+                            <option value="Sommelier">Sommelier</option>
+                        </optgroup>
+                        <optgroup label="Otros">
+                            <option value="Salvavidas">Salvavidas</option>
+                            <option value="Guía turístico">Guía turístico</option>
+                            <option value="Otro">Otro</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cv">CV (solo PDF) *</label>
+                    <input type="file" id="cv" name="cv" accept=".pdf" required>
+                    <small>Solo archivos PDF, máximo 5MB</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="documentos">Documentación adicional</label>
+                    <input type="file" id="documentos" name="documentos" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                    <small>Certificados, referencias, etc. (PDF, JPG, PNG, DOC, DOCX)</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" id="submitBtn">
+                        <span id="submitText">📨 Enviar postulación</span>
+                        <span id="loadingText" style="display: none;">⏳ Enviando...</span>
+                    </button>
+                </div>
+            </form>
+
+            <div id="successMessage" class="success-message" style="display: none;">
+                <h3>✅ ¡Postulación enviada con éxito!</h3>
+                <p>Hemos recibido tu aplicación. Te contactaremos pronto.</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;">
+                <h3>❌ Error al enviar</h3>
+                <p id="errorText">Ha ocurrido un error. Por favor, inténtalo de nuevo.</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 WorkWave Coast - Oportunidades laborales en Croacia</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
