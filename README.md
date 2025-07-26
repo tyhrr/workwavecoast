@@ -1,202 +1,147 @@
-# 🏖️ WorkWave Coast
+# 🌊 WorkWaveCoast
 
-**Sistema web para recopilar postulaciones de trabajo en la costa croata**
+![WorkWaveCoast](https://img.shields.io/badge/Status-En_Desarrollo-blue)
 
-Una solución completa y simple para gestionar aplicaciones laborales en el sector hotelero y gastronómico de Croacia.
+Plataforma web para reclutamiento de personal en hotelería y gastronomía para la costa croata. Este proyecto permite a los candidatos enviar sus aplicaciones a través de un formulario web sencillo, almacenando la información en una base de datos y los documentos en la nube.
 
-## 🌟 Características
+## 📋 Características
 
-- ✅ **Frontend responsivo** - HTML, CSS y JavaScript vanilla (sin frameworks)
-- ✅ **Backend ligero** - Python Flask con funcionalidades completas
-- ✅ **Gestión de archivos** - Subida segura de CVs y documentos
-- ✅ **Exportación de datos** - CSV y Excel descargables
-- ✅ **GitHub Pages ready** - Frontend deployable estáticamente
-- ✅ **Fácil configuración** - Un solo comando para ejecutar
+- Formulario web responsive para envío de candidaturas
+- Almacenamiento de datos en MongoDB Atlas
+- Subida de CVs y documentación a servicios cloud
+- Exportación de datos a CSV para análisis
 
-## 📁 Estructura del Proyecto
+## 🏗️ Arquitectura
 
-```
-WorkWave Coast/
-├── index.html              # Página principal del formulario
-├── style.css               # Estilos CSS (responsive, sin dependencias)
-├── script.js               # JavaScript para el frontend
-├── server.py               # Servidor backend en Python Flask
-├── requirements.txt        # Dependencias de Python
-├── uploads/                # Carpeta para archivos subidos
-├── data.csv                # Base de datos CSV (se crea automáticamente)
-├── export.xlsx             # Archivo Excel exportable (se genera automáticamente)
-└── README.md               # Este archivo
-```
+El proyecto está dividido en cuatro componentes principales:
+
+### 1️⃣ Frontend (GitHub Pages)
+
+- Sitio web estático con HTML, CSS y JavaScript vanilla
+- Formulario responsive para envío de datos y archivos
+- Validación de datos en el cliente
+
+### 2️⃣ Backend (Flask en Render)
+
+- API REST desarrollada en Flask
+- Endpoints para recepción de datos y exportación a CSV
+- Middleware CORS para permitir conexiones desde GitHub Pages
+- Integración con servicios de almacenamiento en la nube
+
+### 3️⃣ Base de datos (MongoDB Atlas)
+
+- Almacenamiento de información de candidatos
+- Estructura flexible para documentos
+- Tier gratuito de MongoDB Atlas
+
+### 4️⃣ Almacenamiento de archivos (Cloudinary/Firebase)
+
+- Subida segura de CVs y documentación adicional
+- URLs permanentes para documentos
+- Integración directa desde el backend
 
 ## 🚀 Instalación y Configuración
 
 ### Prerrequisitos
-- Python 3.8 o superior
-- Git (para clonar el repositorio)
 
-### 1. Clonar el repositorio
+- Cuenta en GitHub
+- Cuenta en MongoDB Atlas
+- Cuenta en Cloudinary o Firebase
+- Cuenta en Render
+
+### Configuración del Frontend
+
 ```bash
-git clone https://github.com/tu-usuario/workwave-coast.git
-cd workwave-coast
+# Clonar el repositorio
+git clone https://github.com/tyhrr/workwavecoast.git
+cd workwavecoast/frontend
+
+# Abrir index.html en tu navegador para pruebas locales
 ```
 
-### 2. Instalar dependencias de Python
+### Configuración del Backend
+
 ```bash
+# Navegar a la carpeta del backend
+cd workwavecoast/backend
+
+# Crear entorno virtual
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Instalar dependencias
 pip install -r requirements.txt
+
+# Configurar variables de entorno (.env)
+# Crear archivo .env con las siguientes variables:
+# MONGODB_URI=your_mongodb_uri
+# CLOUDINARY_CLOUD_NAME=your_cloud_name
+# CLOUDINARY_API_KEY=your_api_key
+# CLOUDINARY_API_SECRET=your_api_secret
+# o las variables para Firebase si usas esa opción
+
+# Iniciar el servidor de desarrollo
+python app.py
 ```
 
-### 3. Ejecutar el servidor
-```bash
-python server.py
-```
-
-El servidor estará disponible en: **http://localhost:5000**
-
-## 🌐 Uso del Sistema
-
-### Para usuarios (postulantes)
-1. Abre la página web en tu navegador
-2. Completa el formulario con tus datos:
-   - Nombre y apellido
-   - Nacionalidad
-   - Puesto al que aplicas
-   - Sube tu CV (solo PDF)
-   - Documentos adicionales (opcional)
-3. Envía tu postulación
-4. Recibirás confirmación de envío exitoso
-
-### Para administradores
-1. **Ver estadísticas**: `GET http://localhost:5000/stats`
-2. **Descargar Excel**: `GET http://localhost:5000/download`
-3. **Acceder a datos CSV**: Archivo `data.csv` en la raíz del proyecto
-4. **Archivos subidos**: Carpeta `uploads/`
-
-## 🔧 Endpoints del API
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/` | Información del API |
-| POST | `/submit` | Enviar nueva postulación |
-| GET | `/download` | Descargar archivo Excel |
-| GET | `/stats` | Estadísticas del sistema |
-
-## 📊 Gestión de Datos
-
-### Archivo CSV (`data.csv`)
-Contiene todas las postulaciones con los siguientes campos:
-- `timestamp` - Fecha y hora de envío
-- `nombre` - Nombre del postulante
-- `apellido` - Apellido del postulante
-- `nacionalidad` - Nacionalidad
-- `puesto` - Puesto al que aplica
-- `cv_filename` - Nombre del archivo CV
-- `documentos_adicionales` - Lista de documentos extras
-- `ip_address` - Dirección IP del envío
-
-### Archivo Excel (`export.xlsx`)
-- Se genera automáticamente desde el CSV
-- Formato optimizado para visualización
-- Descargable desde `/download`
-- Se actualiza con cada nueva postulación
-
-### Archivos subidos (`uploads/`)
-- Todos los CVs y documentos se guardan aquí
-- Nombres únicos con timestamp para evitar conflictos
-- Validación de tipos de archivo
-- Límite de tamaño: 5MB por archivo
-
-## 🌍 Despliegue
+## 📦 Despliegue
 
 ### Frontend en GitHub Pages
-1. Sube todo el proyecto a un repositorio de GitHub
-2. Ve a Settings > Pages
-3. Selecciona la rama main como fuente
-4. Tu formulario estará disponible en: `https://tu-usuario.github.io/workwave-coast`
 
-**Nota**: El frontend funcionará independientemente, pero para enviar datos necesitarás el backend ejecutándose.
+1. Habilita GitHub Pages en la configuración del repositorio
+2. Configura la rama `main` o la carpeta `/docs` como fuente
 
-### Backend en servidor
-Para producción, puedes usar servicios como:
-- Heroku
-- DigitalOcean
-- AWS EC2
-- Google Cloud Platform
+### Backend en Render
 
-Simplemente instala las dependencias y ejecuta `python server.py`.
+1. Conecta tu cuenta de Render con GitHub
+2. Crea un nuevo Web Service y selecciona el repositorio
+3. Configura las variables de entorno necesarias
+4. Despliega la aplicación
 
-## ⚙️ Configuración Avanzada
+## 🔧 Tecnologías utilizadas
 
-### Variables de configuración en `server.py`:
-```python
-UPLOAD_FOLDER = 'uploads'           # Carpeta de archivos
-CSV_FILE = 'data.csv'              # Archivo de datos
-EXCEL_FILE = 'export.xlsx'         # Archivo Excel
-MAX_FILE_SIZE = 5 * 1024 * 1024    # Tamaño máximo (5MB)
+- **Frontend**: HTML5, CSS3, JavaScript vanilla
+- **Backend**: Python, Flask
+- **Base de datos**: MongoDB Atlas
+- **Almacenamiento**: Cloudinary/Firebase Storage
+- **Hosting**: GitHub Pages, Render
+
+## 📄 Estructura de archivos
+
+```
+/
+├── frontend/
+│   ├── index.html
+│   ├── styles.css
+│   └── script.js
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── .render.yaml
+│   ├── uploads/
+│   └── utils/
+│       └── cloud_upload.py
+└── README.md
 ```
 
-### Personalizar campos del formulario:
-- Edita las opciones en `index.html`
-- Actualiza la validación en `script.js`
-- Modifica los headers CSV en `server.py`
+## 🤝 Contribuciones
 
-## 🔒 Seguridad
+Las contribuciones son bienvenidas. Para contribuir:
 
-- ✅ Validación de tipos de archivo
-- ✅ Sanitización de nombres de archivo
-- ✅ Límites de tamaño de archivo
-- ✅ Validación de campos requeridos
-- ✅ Protección CORS configurada
+1. Haz fork del proyecto
+2. Crea una rama para tu funcionalidad (`git checkout -b feature/amazing-feature`)
+3. Haz commit de tus cambios (`git commit -m 'Add amazing feature'`)
+4. Sube los cambios a tu fork (`git push origin feature/amazing-feature`)
+5. Abre un Pull Request
 
-## 🐛 Solución de Problemas
+## ⚖️ Licencia
 
-### Error: "No se puede conectar al servidor"
-- Verifica que el servidor esté ejecutándose: `python server.py`
-- Confirma que esté en el puerto 5000: `http://localhost:5000`
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo LICENSE para más detalles.
 
-### Error: "Archivo demasiado grande"
-- Verifica que el CV sea menor a 5MB
-- Comprime el PDF si es necesario
+## 📞 Contacto
 
-### Error: "Tipo de archivo no permitido"
-- CV: Solo archivos PDF
-- Documentos adicionales: PDF, JPG, PNG, DOC, DOCX
-
-### El Excel no se genera
-- Verifica que pandas y openpyxl estén instalados
-- Comprueba permisos de escritura en la carpeta
-
-## 📝 Desarrollo
-
-### Agregar nuevos campos
-1. Añade el campo HTML en `index.html`
-2. Actualiza la validación en `script.js`
-3. Modifica el backend en `server.py`
-4. Actualiza los headers CSV
-
-### Personalizar estilos
-- Edita `style.css`
-- Variables CSS en `:root` para fácil personalización
-- Diseño responsive incluido
-
-## 📞 Soporte
-
-Para problemas o mejoras:
-1. Abre un issue en GitHub
-2. Incluye detalles del error
-3. Proporciona pasos para reproducir
-
-## 📄 Licencia
-
-MIT License - Libre para uso personal y comercial.
-
-## 🙏 Contribuciones
-
-¡Las contribuciones son bienvenidas!
-1. Fork el proyecto
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push y abre un Pull Request
+Para más información sobre este proyecto, contactar a través de GitHub.
 
 ---
 
-**Desarrollado con ❤️ para facilitar oportunidades laborales en Croacia**
+Desarrollado con ❤️ para la comunidad de trabajadores internacionales en Croacia 🇭🇷
