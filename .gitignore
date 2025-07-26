@@ -73,7 +73,16 @@ uploads/*.doc
 uploads/*.docx
 data.csv
 export.xlsx
+index.html
+style.css
+script.js
+start.bat
+requirements.txt
+server.py
 
 # Temporary files
 *.tmp
 *.temp
+
+# Development tools
+.pylintrc

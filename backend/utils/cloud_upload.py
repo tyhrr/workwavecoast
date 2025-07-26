@@ -2,11 +2,16 @@
 Utilidades para subida de archivos a servicios cloud
 """
 import os
-import cloudinary
-import cloudinary.uploader
 from typing import Optional
 
-def configure_cloudinary():
+try:
+    import cloudinary
+    import cloudinary.uploader
+except ImportError as e:
+    print(f"Error importing cloudinary: {e}")
+    print("Please install cloudinary: pip install cloudinary")
+
+def configure_cloudinary() -> None:
     """Configurar Cloudinary con variables de entorno"""
     cloudinary.config(
         cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
@@ -36,8 +41,11 @@ def upload_file_to_cloudinary(file_path: str, folder: str = "workwavecoast", res
             unique_filename=True
         )
         return result.get('secure_url')
-    except Exception as e:
+    except cloudinary.exceptions.Error as e:
         print(f"Error subiendo archivo a Cloudinary: {e}")
+        return None
+    except (FileNotFoundError, OSError) as e:
+        print(f"Error con archivo local: {e}")
         return None
 
 def delete_file_from_cloudinary(public_id: str, resource_type: str = "auto") -> bool:
@@ -54,8 +62,11 @@ def delete_file_from_cloudinary(public_id: str, resource_type: str = "auto") -> 
     try:
         result = cloudinary.uploader.destroy(public_id, resource_type=resource_type)
         return result.get('result') == 'ok'
-    except Exception as e:
+    except cloudinary.exceptions.Error as e:
         print(f"Error eliminando archivo de Cloudinary: {e}")
+        return False
+    except RuntimeError as e:
+        print(f"Error inesperado: {e}")
         return False
 
 def get_cloudinary_url(public_id: str, **options) -> str:
