@@ -1,260 +1,180 @@
-/* Reset y variables */
-* {
+/* Paleta extraída del logo: 
+- Azul oscuro: #00587A
+- Azul medio: #0088B9
+- Azul claro: #00B4D8
+- Amarillo suave: #FFD180
+- Fondo claro: #F7FAFC
+*/
+
+body {
+    font-family: 'Montserrat', Arial, sans-serif;
+    background: #F7FAFC;
+    color: #1A2A36;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
-:root {
-    --primary-color: #0077be;
-    --secondary-color: #00a8cc;
-    --accent-color: #ff6b35;
-    --success-color: #28a745;
-    --error-color: #dc3545;
-    --background-color: #f8f9fa;
-    --text-color: #333;
-    --border-color: #dee2e6;
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    --border-radius: 8px;
-}
-
-/* Estilos generales */
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    line-height: 1.6;
-    color: var(--text-color);
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-}
-
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-/* Header */
-header {
+header.hero {
+    background-image: url(/frontend/img/hero.jpg);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #fff;
     text-align: center;
-    background: white;
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 2rem;
+    padding: 2.5rem 1rem 2rem 1rem;
+    position: relative;
 }
 
-header h1 {
-    color: var(--primary-color);
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
+.logo {
+    width: 220px;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 2px 8px rgba(0,88,122,0.10));
+    border-radius: 50%;
+    background: #fff;
+    border: 6px solid #00B4D8;
+    box-shadow: 0 4px 24px rgba(0,88,122,0.10);
+    padding: 18px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    object-fit: contain;
 }
 
-header p {
-    color: #666;
-    font-size: 1.1rem;
+.hero h1 {
+    font-size: 2.3rem;
+    margin: 0.5rem 0 0.7rem 0;
+    font-weight: 700;
+    letter-spacing: 1px;
 }
 
-/* Formulario */
-form {
-    background: white;
-    padding: 2rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 2rem;
+.hero-text {
+    font-size: 1.15rem;
+    max-width: 500px;
+    margin: 0 auto;
+    color: #F7FAFC;
+    opacity: 0.95;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: -1.5rem;
+}
+
+.form-section {
+    background: #fff;
+    border-radius: 32px;
+    box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+    padding: 2rem 1.5rem 1.5rem 1.5rem;
+    max-width: 420px;
+    width: 100%;
+    margin-top: 3.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.form-section h2 {
+    color: #00587A;
+    margin-bottom: 1.2rem;
+    font-size: 1.3rem;
+    font-weight: 600;
 }
 
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.1rem;
+    display: flex;
+    flex-direction: column;
 }
 
-label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--text-color);
+.form-group label {
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+    color: #0088B9;
+}
+
+.form-group label span {
+    color: #FFD180;
+    font-size: 1.1em;
 }
 
 input[type="text"],
-select,
-input[type="file"] {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid var(--border-color);
-    border-radius: var(--border-radius);
+input[type="email"],
+input[type="tel"],
+select {
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #B2DFEE;
+    border-radius: 6px;
     font-size: 1rem;
-    transition: border-color 0.3s ease;
+    background: #F7FAFC;
+    color: #1A2A36;
+    transition: border 0.2s;
 }
 
 input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
 select:focus {
+    border-color: #00B4D8;
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 119, 190, 0.1);
 }
 
 input[type="file"] {
-    padding: 0.5rem;
-    cursor: pointer;
+    margin-top: 0.3rem;
+    color: #00587A;
 }
 
-input[type="file"]::-webkit-file-upload-button {
-    background: var(--primary-color);
-    color: white;
+.submit-btn {
+    background: linear-gradient(90deg, #0088B9 0%, #00B4D8 100%);
+    color: #fff;
     border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 1rem;
-}
-
-small {
-    display: block;
-    margin-top: 0.25rem;
-    color: #666;
-    font-size: 0.85rem;
-}
-
-/* Botón de envío */
-.form-actions {
-    text-align: center;
-    margin-top: 2rem;
-}
-
-button[type="submit"] {
-    background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-    color: white;
-    border: none;
-    padding: 1rem 2rem;
+    border-radius: 6px;
+    padding: 0.7rem 1.5rem;
     font-size: 1.1rem;
     font-weight: 600;
-    border-radius: var(--border-radius);
     cursor: pointer;
-    transition: all 0.3s ease;
-    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0,88,122,0.08);
+    transition: background 0.2s, box-shadow 0.2s;
 }
 
-button[type="submit"]:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 119, 190, 0.3);
+.submit-btn:hover {
+    background: linear-gradient(90deg, #00587A 0%, #0088B9 100%);
+    box-shadow: 0 4px 16px rgba(0,88,122,0.13);
 }
 
-button[type="submit"]:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+.icon-send {
+    vertical-align: middle;
+    fill: #FFD180;
 }
 
-/* Mensajes */
-.success-message,
-.error-message {
-    padding: 1.5rem;
-    border-radius: var(--border-radius);
-    margin-bottom: 2rem;
+.message {
+    margin-top: 1rem;
+    font-size: 1rem;
+    min-height: 1.2em;
+    color: #00587A;
     text-align: center;
 }
 
-.success-message {
-    background: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
-}
-
-.error-message {
-    background: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-
-.success-message h3,
-.error-message h3 {
-    margin-bottom: 0.5rem;
-}
-
-/* Footer */
 footer {
     text-align: center;
-    color: white;
-    padding: 1rem;
-    font-size: 0.9rem;
+    padding: 1.2rem 0 0.7rem 0;
+    color: #0088B9;
+    background: none;
+    font-size: 0.98rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
+@media (max-width: 600px) {
+    .form-section {
+        padding: 1.2rem 0.5rem 1rem 0.5rem;
+        max-width: 98vw;
     }
-    
-    header h1 {
-        font-size: 2rem;
+    .hero h1 {
+        font-size: 1.4rem;
     }
-    
-    form {
-        padding: 1.5rem;
+    .logo {
+        width: 80px;
     }
-    
-    button[type="submit"] {
-        width: 100%;
-        padding: 1rem;
-    }
-}
-
-@media (max-width: 480px) {
-    header {
-        padding: 1.5rem;
-    }
-    
-    header h1 {
-        font-size: 1.8rem;
-    }
-    
-    form {
-        padding: 1rem;
-    }
-    
-    .form-group {
-        margin-bottom: 1rem;
-    }
-}
-
-/* Animaciones */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.container > * {
-    animation: fadeIn 0.6s ease-out;
-}
-
-/* Estados de validación */
-input:invalid {
-    border-color: var(--error-color);
-}
-
-input:valid {
-    border-color: var(--success-color);
-}
-
-/* Estilos para optgroup */
-optgroup {
-    font-weight: bold;
-    color: var(--primary-color);
-}
-
-option {
-    font-weight: normal;
-    color: var(--text-color);
-}
-
-/* Efectos hover */
-.form-group:hover label {
-    color: var(--primary-color);
-    transition: color 0.3s ease;
 }

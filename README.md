@@ -1,140 +1,123 @@
-# 🌊 WorkWaveCoast
+# WorkWave Coast
 
-![WorkWaveCoast](https://img.shields.io/badge/Status-En_Desarrollo-blue)
-
-Plataforma web para reclutamiento de personal en hotelería y gastronomía para la costa croata. Este proyecto permite a los candidatos enviar sus aplicaciones a través de un formulario web sencillo, almacenando la información en una base de datos y los documentos en la nube.
-
-## 📋 Características
-
-- Formulario web responsive para envío de candidaturas
-- Almacenamiento de datos en MongoDB Atlas
-- Subida de CVs y documentación a servicios cloud
-- Exportación de datos a CSV para análisis
-
-## 🏗️ Arquitectura
-
-El proyecto está dividido en cuatro componentes principales:
-
-### 1️⃣ Frontend (GitHub Pages)
-
-- Sitio web estático con HTML, CSS y JavaScript vanilla
-- Formulario responsive para envío de datos y archivos
-- Validación de datos en el cliente
-
-### 2️⃣ Backend (Flask en Render)
-
-- API REST desarrollada en Flask
-- Endpoints para recepción de datos y exportación a CSV
-- Middleware CORS para permitir conexiones desde GitHub Pages
-- Integración con servicios de almacenamiento en la nube
-
-### 3️⃣ Base de datos (MongoDB Atlas)
-
-- Almacenamiento de información de candidatos
-- Estructura flexible para documentos
-- Tier gratuito de MongoDB Atlas
-
-### 4️⃣ Almacenamiento de archivos (Cloudinary/Firebase)
-
-- Subida segura de CVs y documentación adicional
-- URLs permanentes para documentos
-- Integración directa desde el backend
-
-## 🚀 Instalación y Configuración
-
-### Prerrequisitos
-
-- Cuenta en GitHub
-- Cuenta en MongoDB Atlas
-- Cuenta en Cloudinary o Firebase
-- Cuenta en Render
-
-### Configuración del Frontend
-
-```bash
-# Clonar el repositorio
-git clone https://github.com/tyhrr/workwavecoast.git
-cd workwavecoast/frontend
-
-# Abrir index.html en tu navegador para pruebas locales
-```
-
-### Configuración del Backend
-
-```bash
-# Navegar a la carpeta del backend
-cd workwavecoast/backend
-
-# Crear entorno virtual
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Configurar variables de entorno (.env)
-# Crear archivo .env con las siguientes variables:
-# MONGODB_URI=your_mongodb_uri
-# CLOUDINARY_CLOUD_NAME=your_cloud_name
-# CLOUDINARY_API_KEY=your_api_key
-# CLOUDINARY_API_SECRET=your_api_secret
-# o las variables para Firebase si usas esa opción
-
-# Iniciar el servidor de desarrollo
-python app.py
-```
-
-## 📦 Despliegue
-
-### Frontend en GitHub Pages
-
-1. Habilita GitHub Pages en la configuración del repositorio
-2. Configura la rama `main` o la carpeta `/docs` como fuente
-
-### Backend en Render
-
-1. Conecta tu cuenta de Render con GitHub
-2. Crea un nuevo Web Service y selecciona el repositorio
-3. Configura las variables de entorno necesarias
-4. Despliega la aplicación
-
-## 🔧 Tecnologías utilizadas
-
-- **Frontend**: HTML5, CSS3, JavaScript vanilla
-- **Backend**: Python, Flask
-- **Base de datos**: MongoDB Atlas
-- **Almacenamiento**: Cloudinary/Firebase Storage
-- **Hosting**: GitHub Pages, Render
-
-## 📄 Estructura de archivos
-
-```
-/
-├── frontend/
-│   ├── index.html
-│   ├── styles.css
-│   └── script.js
-├── backend/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── .render.yaml
-│   ├── uploads/
-│   └── utils/
-│       └── cloud_upload.py
-└── README.md
-```
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Para contribuir:
-
-1. Haz fork del proyecto
-2. Crea una rama para tu funcionalidad (`git checkout -b feature/amazing-feature`)
-3. Haz commit de tus cambios (`git commit -m 'Add amazing feature'`)
-4. Sube los cambios a tu fork (`git push origin feature/amazing-feature`)
-5. Abre un Pull Request
-
+Plataforma para la gestión de postulaciones laborales en la costa croata. Incluye frontend moderno y backend robusto con integración a MongoDB Atlas y Firebase Storage.
 
 ---
 
-Desarrollado con ❤️
+## Tabla de Contenidos
+- [Descripción General](#descripción-general)
+- [Tecnologías Utilizadas](#tecnologías-utilizadas)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Guía de Instalación y Despliegue](#guía-de-instalación-y-despliegue)
+- [Configuración de MongoDB Atlas](#configuración-de-mongodb-atlas)
+- [Configuración de Firebase Storage](#configuración-de-firebase-storage)
+- [Uso de la Aplicación](#uso-de-la-aplicación)
+- [Buenas Prácticas](#buenas-prácticas)
+- [Tareas Pendientes](#tareas-pendientes)
+
+---
+
+## Descripción General
+WorkWave Coast permite a candidatos postularse a empleos en la costa croata, subiendo su información y documentos. El backend almacena los datos en MongoDB Atlas y los archivos en Firebase Storage.
+
+## Tecnologías Utilizadas
+- Frontend: HTML5, CSS3 (Montserrat), JavaScript (fetch, FormData)
+- Backend: Python 3, Flask, Flask-CORS
+- Base de datos: MongoDB Atlas
+- Almacenamiento de archivos: Firebase Storage, Cloudinary (opcional)
+- Despliegue: Render (backend), Netlify/Vercel (frontend)
+
+## Estructura del Proyecto
+```
+backend/
+  app.py (o main.py)
+  .env
+  requirements.txt
+  .gitignore
+frontend/
+  index.html
+  styles.css
+  script.js
+  img/
+    hero.jpg
+    workwave2.png
+    ...
+docs/
+  conexion_backend_mongodb_firebase.md
+```
+
+## Guía de Instalación y Despliegue
+
+### 1. Clonar el repositorio
+```bash
+git clone <repo_url>
+cd WorkWave Coast
+```
+
+### 2. Configurar el backend
+- Ve a la carpeta `/backend`.
+- Crea el archivo `.env` con tu URI de MongoDB Atlas:
+  ```env
+  MONGODB_URI=mongodb+srv://alnsal:E9A9LU6O1CEN5d0W@workwave.mxkpkgw.mongodb.net/?retryWrites=true&w=majority&appName=Workwave
+  ```
+- Asegúrate de que `.env` esté en `.gitignore`.
+- Instala las dependencias localmente (opcional):
+  ```bash
+  pip install -r requirements.txt
+  ```
+
+### 3. Despliegue en Render (backend)
+- Sube el proyecto a GitHub.
+- En Render, crea un nuevo Web Service y conecta tu repo.
+- Elige `/backend` como root.
+- Render instalará automáticamente las dependencias de `requirements.txt`.
+- En "Start Command" pon: `gunicorn app:app` (o el nombre de tu archivo principal).
+- Configura la variable de entorno `MONGODB_URI` en el panel de Render.
+
+### 4. Configurar el frontend
+- Ve a la carpeta `/frontend`.
+- Sube el contenido a Netlify, Vercel o tu hosting estático favorito.
+- Asegúrate de que las rutas de imágenes y scripts sean correctas.
+
+### 5. Pruebas
+- Abre el frontend y prueba el envío de formularios.
+- Verifica que los datos lleguen a MongoDB y los archivos a Firebase.
+
+---
+
+## Configuración de MongoDB Atlas
+Consulta el archivo `docs/conexion_backend_mongodb_firebase.md` para una guía paso a paso sobre cómo crear el cluster, usuario, base de datos y obtener la URI.
+
+## Configuración de Firebase Storage
+Consulta el mismo archivo para la integración y subida de archivos desde Flask.
+
+---
+
+## Uso de la Aplicación
+1. El usuario accede al frontend y llena el formulario de postulación.
+2. El formulario envía los datos y archivos al backend Flask.
+3. El backend guarda los datos en MongoDB Atlas y los archivos en Firebase Storage.
+4. El usuario recibe confirmación visual en la web.
+
+---
+
+## Buenas Prácticas
+- Nunca subas `.env` ni credenciales al repositorio.
+- Usa variables de entorno para todas las claves.
+- Documenta cualquier cambio relevante en este README y en los archivos de docs.
+- Haz pruebas antes de lanzar a producción.
+
+---
+
+## Tareas Pendientes
+- [ ] Desplegar el backend en Render y probar la conexión real con MongoDB Atlas.
+- [ ] Configurar y probar la subida de archivos a Firebase Storage desde el backend.
+- [ ] Desplegar el frontend en Netlify/Vercel y probar el flujo completo.
+- [ ] Mejorar validaciones y mensajes de error en el frontend.
+- [ ] Agregar autenticación y panel de administración (opcional).
+- [ ] Documentar endpoints de la API y ejemplos de uso.
+- [ ] Agregar tests automáticos para el backend.
+
+---
+
+¿Dudas? Consulta la documentación en `/docs` o abre un issue en el repositorio.
