@@ -46,52 +46,6 @@ docs/
   conexion_backend_mongodb_firebase.md
 ```
 
-## Guía de Instalación y Despliegue
-
-### 1. Clonar el repositorio
-```bash
-git clone <repo_url>
-cd WorkWave Coast
-```
-
-### 2. Configurar el backend
-- Ve a la carpeta `/backend`.
-- Crea el archivo `.env` con tu URI de MongoDB Atlas:
-  ```env
-  MONGODB_URI=mongodb+srv://alnsal:E9A9LU6O1CEN5d0W@workwave.mxkpkgw.mongodb.net/?retryWrites=true&w=majority&appName=Workwave
-  ```
-- Asegúrate de que `.env` esté en `.gitignore`.
-- Instala las dependencias localmente (opcional):
-  ```bash
-  pip install -r requirements.txt
-  ```
-
-### 3. Despliegue en Render (backend)
-- Sube el proyecto a GitHub.
-- En Render, crea un nuevo Web Service y conecta tu repo.
-- Elige `/backend` como root.
-- Render instalará automáticamente las dependencias de `requirements.txt`.
-- En "Start Command" pon: `gunicorn app:app` (o el nombre de tu archivo principal).
-- Configura la variable de entorno `MONGODB_URI` en el panel de Render.
-
-### 4. Configurar el frontend
-- Ve a la carpeta `/frontend`.
-- Sube el contenido a Netlify, Vercel o tu hosting estático favorito.
-- Asegúrate de que las rutas de imágenes y scripts sean correctas.
-
-### 5. Pruebas
-- Abre el frontend y prueba el envío de formularios.
-- Verifica que los datos lleguen a MongoDB y los archivos a Firebase.
-
----
-
-## Configuración de MongoDB Atlas
-Consulta el archivo `docs/conexion_backend_mongodb_firebase.md` para una guía paso a paso sobre cómo crear el cluster, usuario, base de datos y obtener la URI.
-
-## Configuración de Firebase Storage
-Consulta el mismo archivo para la integración y subida de archivos desde Flask.
-
----
 
 ## Uso de la Aplicación
 1. El usuario accede al frontend y llena el formulario de postulación.
