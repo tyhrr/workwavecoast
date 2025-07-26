@@ -134,14 +134,7 @@ Las contribuciones son bienvenidas. Para contribuir:
 4. Sube los cambios a tu fork (`git push origin feature/amazing-feature`)
 5. Abre un Pull Request
 
-## ⚖️ Licencia
-
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo LICENSE para más detalles.
-
-## 📞 Contacto
-
-Para más información sobre este proyecto, contactar a través de GitHub.
 
 ---
 
-Desarrollado con ❤️ para la comunidad de trabajadores internacionales en Croacia 🇭🇷
+Desarrollado con ❤️
