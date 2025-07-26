@@ -21,7 +21,7 @@ Plataforma para la gestión de postulaciones laborales en la costa croata. Inclu
 WorkWave Coast permite a candidatos postularse a empleos en la costa croata, subiendo su información y documentos. El backend almacena los datos en MongoDB Atlas y los archivos en Firebase Storage.
 
 ## Tecnologías Utilizadas
-- Frontend: HTML5, CSS3 (Montserrat), JavaScript (fetch, FormData)
+- Frontend: HTML5, CSS3, JavaScript (fetch, FormData)
 - Backend: Python 3, Flask, Flask-CORS
 - Base de datos: MongoDB Atlas
 - Almacenamiento de archivos: Firebase Storage, Cloudinary (opcional)
