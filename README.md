@@ -8,7 +8,6 @@ Plataforma para la gestión de postulaciones laborales en la costa croata. Inclu
 - [Descripción General](#descripción-general)
 - [Tecnologías Utilizadas](#tecnologías-utilizadas)
 - [Estructura del Proyecto](#estructura-del-proyecto)
-- [Guía de Instalación y Despliegue](#guía-de-instalación-y-despliegue)
 - [Configuración de MongoDB Atlas](#configuración-de-mongodb-atlas)
 - [Configuración de Firebase Storage](#configuración-de-firebase-storage)
 - [Uso de la Aplicación](#uso-de-la-aplicación)
