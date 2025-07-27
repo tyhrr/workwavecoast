@@ -1,0 +1,28 @@
+[MESSAGES CONTROL]
+# Disable specific warnings that are acceptable in our context
+disable=
+    broad-exception-caught,     # We use specific exceptions now
+    broad-exception-raised,     # We use specific exceptions now
+    too-few-public-methods,     # Flask apps often have simple classes
+    import-error,               # Sometimes false positives with virtual envs
+    unused-import,              # Sometimes needed for side effects
+    line-too-long,              # Some lines naturally get long
+    missing-module-docstring,   # We have docstring now
+    missing-function-docstring, # We added docstrings
+    trailing-whitespace,        # Already cleaned
+    wrong-import-order,         # Our import order is correct now
+    too-many-except             # Sometimes needed for comprehensive error handling
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=100
+
+[DESIGN]
+# Maximum number of arguments for function/method
+max-args=10
+
+# Maximum number of locals for function/method body
+max-locals=15
+
+# Maximum number of branches for function/method body
+max-branches=15

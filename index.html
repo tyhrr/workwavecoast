@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Trabaja en la Costa Croata</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/styles.css">
+    <link rel="icon" type="image/png" href="frontend/img/workwave2.png">
+</head>
+<body>
+    <header class="hero">
+        <img src="frontend/img/workwave2.png" alt="WorkWave Coast Logo" class="logo">
+        <h1>Trabaja en la Costa Croata</h1>
+        <p class="hero-text">
+            Únete a nuestro equipo y vive la experiencia de trabajar en uno de los destinos más hermosos de Europa. Disfruta de un ambiente profesional, oportunidades de crecimiento y calidad de vida junto al mar Adriático.
+        </p>
+    </header>
+    <main>
+        <section class="form-section">
+            <h2>Formulario de Postulación</h2>
+            <form id="applicationForm" enctype="multipart/form-data" autocomplete="on">
+                <div class="form-group">
+                    <label for="nombre">Nombre /s <span>*</span></label>
+                    <input type="text" id="nombre" name="nombre" required maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="apellido">Apellido /s <span>*</span></label>
+                    <input type="text" id="apellido" name="apellido" required maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label for="nacionalidad">Nacionalidad <span>*</span></label>
+                    <input type="text" id="nacionalidad" name="nacionalidad" required maxlength="40">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email <span>*</span></label>
+                    <input type="email" id="email" name="email" required maxlength="60">
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Teléfono<span>*</span></label>
+                    <input type="tel" id="telefono" name="telefono" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="puesto">Puesto al que aplica <span>*</span></label>
+                    <select id="puesto" name="puesto" required>
+                        <option value="">Selecciona un puesto</option>
+                        <option value="Camarero/a">Camarero/a</option>
+                        <option value="Cocinero/a">Cocinero/a</option>
+                        <option value="Recepcionista">Recepcionista</option>
+                        <option value="Limpieza">Limpieza</option>
+                        <option value="Animador/a">Animador/a</option>
+                        <option value="Guía turístico">Bartender</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="ingles_nivel">Inglés</label>
+                    <select id="ingles_nivel" name="ingles_nivel">
+                        <option value="">Selecciona nivel</option>
+                        <option value="A1">A1</option>
+                        <option value="A2">A2</option>
+                        <option value="B1">B1</option>
+                        <option value="B2">B2</option>
+                        <option value="C1">C1</option>
+                        <option value="C2">C2</option>
+                        <option value="Nativo">Nativo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="espanol_nivel">Español</label>
+                    <select id="espanol_nivel" name="espanol_nivel">
+                        <option value="">Selecciona nivel</option>
+                        <option value="A1">A1</option>
+                        <option value="A2">A2</option>
+                        <option value="B1">B1</option>
+                        <option value="B2">B2</option>
+                        <option value="C1">C1</option>
+                        <option value="C2">C2</option>
+                        <option value="Nativo">Nativo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="otro_idioma">Otro idioma</label>
+                    <input type="text" id="otro_idioma" name="otro_idioma" placeholder="Escribe el idioma">
+                    <select id="otro_idioma_nivel" name="otro_idioma_nivel" style="margin-top:0.5rem;">
+                        <option value="">Selecciona nivel</option>
+                        <option value="A1">A1</option>
+                        <option value="A2">A2</option>
+                        <option value="B1">B1</option>
+                        <option value="B2">B2</option>
+                        <option value="C1">C1</option>
+                        <option value="C2">C2</option>
+                        <option value="Nativo">Nativo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cv">Currículum Vitae (PDF) <span>*</span></label>
+                    <input type="file" id="cv" name="cv" accept="application/pdf" required>
+                </div>
+                <div class="form-group">
+                    <label for="documentos">Documentos adicionales</label>
+                    <input type="file" id="documentos" name="documentos" accept="application/pdf,image/*">
+                </div>
+                <button type="submit" class="submit-btn">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" class="icon-send" aria-hidden="true"><path d="M4 10a1 1 0 011-1h7.586l-3.293-3.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 11-1.414-1.414L12.586 11H5a1 1 0 01-1-1z"/></svg>
+                    Enviar Postulación
+                </button>
+                <div id="message" class="message"></div>
+            </form>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2025 WorkWave Coast. Todos los derechos reservados.</p>
+    </footer>
+    <script src="frontend/script.js"></script>
+</body>
+</html>
