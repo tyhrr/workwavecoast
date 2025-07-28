@@ -87,6 +87,12 @@ def submit_application():
         dict: JSON response with success status and application ID
     """
     try:
+        print("=== Submit Application Debug ===")
+        print(f"Request method: {request.method}")
+        print(f"Request content type: {request.content_type}")
+        print(f"Form data: {dict(request.form)}")
+        print(f"Files: {list(request.files.keys())}")
+        
         # Get form data
         data = request.form.to_dict()
 
@@ -168,8 +174,14 @@ def submit_application():
         # Add file URLs to data (convert to JSON string for MongoDB storage)
         data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
+        print(f"Final data to insert: {data}")
+        print(f"MongoDB URI configured: {bool(MONGODB_URI)}")
+        print(f"Database name: {db.name}")
+        print(f"Collection name: candidates")
+
         # Insert into MongoDB
         result = candidates.insert_one(data)
+        print(f"Insert result: {result.inserted_id}")
 
         return jsonify({
             "success": True,
