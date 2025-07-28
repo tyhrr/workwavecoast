@@ -54,14 +54,6 @@ docs/
 
 ---
 
-## Buenas Prácticas
-- Nunca subas `.env` ni credenciales al repositorio.
-- Usa variables de entorno para todas las claves.
-- Documenta cualquier cambio relevante en este README y en los archivos de docs.
-- Haz pruebas antes de lanzar a producción.
-
----
-
 ## Tareas Pendientes
 - [ ] Desplegar el backend en Render y probar la conexión real con MongoDB Atlas.
 - [ ] Configurar y probar la subida de archivos a Firebase Storage desde el backend.
