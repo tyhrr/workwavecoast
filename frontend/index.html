@@ -95,11 +95,13 @@
                 </div>
                 <div class="form-group">
                     <label for="cv">Currículum Vitae (PDF) <span>*</span></label>
-                    <input type="file" id="cv" name="cv" accept="application/pdf" required>
+                    <small class="file-info">Máximo 1MB - Recomendado: 1 hoja</small>
+                    <input type="file" id="cv" name="cv" accept="application/pdf" required data-max-size="1048576">
                 </div>
                 <div class="form-group">
                     <label for="documentos">Documentos adicionales</label>
-                    <input type="file" id="documentos" name="documentos" accept="application/pdf,image/*">
+                    <small class="file-info">Máximo 2MB - PDF o imágenes</small>
+                    <input type="file" id="documentos" name="documentos" accept="application/pdf,image/*" data-max-size="2097152">
                 </div>
                 <button type="submit" class="submit-btn">
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" class="icon-send" aria-hidden="true"><path d="M4 10a1 1 0 011-1h7.586l-3.293-3.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 11-1.414-1.414L12.586 11H5a1 1 0 01-1-1z"/></svg>

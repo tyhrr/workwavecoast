@@ -146,6 +146,14 @@ input[type="file"] {
     font-size: 0.9rem;
 }
 
+.file-info {
+    display: block;
+    font-size: 0.8rem;
+    color: #0088B9;
+    margin-bottom: 0.3rem;
+    opacity: 0.8;
+}
+
 .submit-btn {
     background: linear-gradient(90deg, #0088B9 0%, #00B4D8 100%);
     color: #fff;
