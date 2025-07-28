@@ -113,21 +113,27 @@ document.getElementById('applicationForm').addEventListener('submit', async func
     try {
         const response = await fetch(getApiBaseUrl(), {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
         });
         
         const result = await response.json();
         
-        if (result.success) {
+        if (response.ok && result.success) {
             messageDiv.textContent = '✅ Postulación enviada correctamente. ¡Gracias por tu interés!';
             messageDiv.style.color = '#00B4D8';
             form.reset();
         } else {
-            messageDiv.textContent = '❌ ' + (result.message || 'Error al enviar la postulación.');
+            console.error('Server error:', response.status, result);
+            messageDiv.textContent = '❌ ' + (result.message || `Error del servidor (${response.status})`);
             messageDiv.style.color = '#ff6b6b';
         }
     } catch (err) {
         console.error('Error:', err);
+        console.error('Detalles del error:', err.message, err.stack);
         messageDiv.textContent = '❌ Error de conexión con el servidor. Inténtalo de nuevo.';
         messageDiv.style.color = '#ff6b6b';
     }
