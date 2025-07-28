@@ -112,11 +112,21 @@ def submit_application():
 
         for field_name, file in files.items():
             if file and file.filename:
+                print(f"Processing file: {field_name} - {file.filename}")
+                
                 # Validate file size
                 if field_name in file_size_limits:
-                    file.seek(0, 2)  # Seek to end
-                    file_size = file.tell()
-                    file.seek(0)  # Reset to beginning
+                    try:
+                        file.seek(0, 2)  # Seek to end
+                        file_size = file.tell()
+                        file.seek(0)  # Reset to beginning
+                        print(f"File size: {file_size} bytes")
+                    except Exception as e:
+                        print(f"Error checking file size: {e}")
+                        return jsonify({
+                            "success": False,
+                            "message": f"Error al procesar el archivo {field_name}"
+                        }), 400
 
                     if file_size > file_size_limits[field_name]:
                         max_size_mb = file_size_limits[field_name] / (1024 * 1024)
@@ -128,8 +138,12 @@ def submit_application():
 
                 # Upload to Cloudinary (if configured)
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+                print(f"Cloudinary cloud_name: {cloud_name}")
+                
                 if cloud_name and cloud_name != 'tu_cloud_name':
                     try:
+                        print(f"Attempting to upload {field_name} to Cloudinary...")
+                        
                         # Upload with specific options for different file types
                         upload_options = {
                             'folder': 'workwave_coast',
@@ -144,8 +158,10 @@ def submit_application():
                             upload_options['format'] = 'pdf'
                             upload_options['pages'] = True  # Enable page count
 
+                        print(f"Upload options: {upload_options}")
                         upload_result = cloudinary.uploader.upload(
                             file, **upload_options)
+                        print(f"Upload successful: {upload_result.get('secure_url', 'No URL')}")
 
                         file_urls[field_name] = {
                             'url': upload_result['secure_url'],
@@ -228,6 +244,42 @@ def get_applications():
         return jsonify({
             "success": False,
             "message": "Error fetching applications",
+            "error": str(e)
+        }), 500
+
+@app.route('/api/test-cloudinary', methods=['GET'])
+def test_cloudinary():
+    """Test Cloudinary configuration and connection."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+        
+        if not cloud_name or not api_key or not api_secret:
+            return jsonify({
+                "success": False,
+                "message": "Cloudinary environment variables not configured",
+                "details": {
+                    "cloud_name": bool(cloud_name),
+                    "api_key": bool(api_key),
+                    "api_secret": bool(api_secret)
+                }
+            }), 400
+            
+        # Test Cloudinary connection
+        import cloudinary.api
+        result = cloudinary.api.ping()
+        
+        return jsonify({
+            "success": True,
+            "message": "Cloudinary connection successful",
+            "details": result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": "Cloudinary connection failed",
             "error": str(e)
         }), 500
 
