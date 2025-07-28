@@ -92,7 +92,7 @@ def submit_application():
         print(f"Request content type: {request.content_type}")
         print(f"Form data: {dict(request.form)}")
         print(f"Files: {list(request.files.keys())}")
-        
+
         # Get form data
         data = request.form.to_dict()
 
@@ -114,7 +114,7 @@ def submit_application():
             if file and file.filename:
                 print(f"Processing file: {field_name} - {file.filename}")
                 file_size = 0  # Initialize file_size
-                
+
                 # Validate file size
                 if field_name in file_size_limits:
                     try:
@@ -140,11 +140,11 @@ def submit_application():
                 # Upload to Cloudinary (if configured)
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
                 print(f"Cloudinary cloud_name: {cloud_name}")
-                
+
                 if cloud_name and cloud_name != 'tu_cloud_name':
                     try:
                         print(f"Attempting to upload {field_name} to Cloudinary...")
-                        
+
                         # Upload with specific options for different file types
                         upload_options = {
                             'folder': 'workwave_coast',
@@ -264,12 +264,12 @@ def get_latest_application():
         # Get the most recent application
         latest_app = candidates.find().sort('created_at', -1).limit(1)
         applications = list(latest_app)
-        
+
         if applications:
             app = applications[0]
             # Convert ObjectId to string for JSON serialization
             app['_id'] = str(app['_id'])
-            
+
             return jsonify({
                 "success": True,
                 "application": app
@@ -281,7 +281,7 @@ def get_latest_application():
                 "message": "No applications found"
             })
 
-    except (ConnectionError, TimeoutError, ValueError, TypeError, OSError, 
+    except (ConnectionError, TimeoutError, ValueError, TypeError, OSError,
             RuntimeError) as e:
         print(f"Error fetching latest application: {e}")
         return jsonify({
@@ -297,32 +297,57 @@ def test_cloudinary():
         cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
         api_key = os.getenv('CLOUDINARY_API_KEY')
         api_secret = os.getenv('CLOUDINARY_API_SECRET')
-        
+
+        response_data = {
+            "success": False,
+            "environment_variables": {
+                "cloud_name": cloud_name if cloud_name else "NOT_SET",
+                "api_key": "SET" if api_key else "NOT_SET",
+                "api_secret": "SET" if api_secret else "NOT_SET"
+            }
+        }
+
         if not cloud_name or not api_key or not api_secret:
-            return jsonify({
-                "success": False,
+            response_data.update({
                 "message": "Cloudinary environment variables not configured",
-                "details": {
-                    "cloud_name": bool(cloud_name),
-                    "api_key": bool(api_key),
-                    "api_secret": bool(api_secret)
+                "instructions": {
+                    "step1": "Go to https://cloudinary.com and create a free account",
+                    "step2": "Get your Cloud Name, API Key, and API Secret from the dashboard",
+                    "step3": "Set these as environment variables in Render",
+                    "variables_needed": ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"]
                 }
-            }), 400
-            
+            })
+            return jsonify(response_data), 400
+
         # Test Cloudinary connection
-        import cloudinary.api
-        result = cloudinary.api.ping()
-        
-        return jsonify({
-            "success": True,
-            "message": "Cloudinary connection successful",
-            "details": result
-        })
-        
+        try:
+            import cloudinary.api
+            result = cloudinary.api.ping()
+
+            response_data.update({
+                "success": True,
+                "message": "Cloudinary connection successful",
+                "cloudinary_response": result
+            })
+            return jsonify(response_data)
+
+        except Exception as cloudinary_error:
+            response_data.update({
+                "message": f"Cloudinary connection failed: {str(cloudinary_error)}",
+                "possible_causes": [
+                    "Invalid cloud_name - check if it matches your Cloudinary dashboard",
+                    "Invalid API key or secret",
+                    "Network connectivity issues",
+                    "Cloudinary service temporarily unavailable"
+                ],
+                "current_cloud_name": cloud_name
+            })
+            return jsonify(response_data), 500
+
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": "Cloudinary connection failed",
+            "message": "Unexpected error testing Cloudinary",
             "error": str(e)
         }), 500
 
