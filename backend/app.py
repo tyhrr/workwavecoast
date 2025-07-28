@@ -26,7 +26,9 @@ app = Flask(__name__)
 # Configure CORS for your custom domain
 CORS(app, origins=[
     "https://workwavecoast.online",
-    "https://www.workwavecoast.online", 
+    "https://www.workwavecoast.online",
+    "http://workwavecoast.online",
+    "http://www.workwavecoast.online", 
     "http://localhost:3000",
     "http://127.0.0.1:5500",
     "http://localhost:5000"

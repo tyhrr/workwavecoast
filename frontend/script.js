@@ -7,9 +7,9 @@ function getApiBaseUrl() {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:5000/api/submit';
     }
-    // Producción con dominio personalizado
+    // TEMPORAL: Usar backend local hasta que se despliegue en Render
     if (window.location.hostname === 'workwavecoast.online') {
-        return 'https://workwavecoast-backend.onrender.com/api/submit';
+        return 'http://localhost:5000/api/submit';
     }
     // Fallback para GitHub Pages
     return 'https://workwavecoast-backend.onrender.com/api/submit';
