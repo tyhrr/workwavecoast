@@ -206,10 +206,17 @@ def health_check():
     try:
         # Test MongoDB connection
         client.admin.command('ping')
+        
+        # Check Cloudinary configuration
+        cloudinary_status = "configured" if (
+            os.getenv('CLOUDINARY_CLOUD_NAME') and 
+            os.getenv('CLOUDINARY_CLOUD_NAME') != 'tu_cloud_name'
+        ) else "not_configured"
 
         return jsonify({
             "status": "healthy",
             "mongodb": "connected",
+            "cloudinary": cloudinary_status,
             "timestamp": datetime.utcnow().isoformat()
         })
 
@@ -217,6 +224,7 @@ def health_check():
         return jsonify({
             "status": "unhealthy",
             "mongodb": "disconnected",
+            "cloudinary": "unknown",
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 503
@@ -224,6 +232,7 @@ def health_check():
         return jsonify({
             "status": "unhealthy",
             "mongodb": "unknown_error",
+            "cloudinary": "unknown",
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 500
