@@ -14,7 +14,7 @@ import json
 from datetime import datetime
 
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import cloudinary
@@ -33,7 +33,7 @@ CORS(app, origins=[
     "http://localhost:3000",
     "http://127.0.0.1:5500",
     "http://localhost:5000"
-])
+], supports_credentials=True)
 
 # MongoDB configuration
 MONGODB_URI = os.getenv('MONGODB_URI')
@@ -58,7 +58,24 @@ def home():
     """
     return jsonify({"message": "WorkWave Coast Backend API", "status": "running"})
 
+@app.route('/api/submit', methods=['OPTIONS'])
+@cross_origin(origins=[
+    "https://workwavecoast.online",
+    "https://www.workwavecoast.online",
+    "http://workwavecoast.online",
+    "http://www.workwavecoast.online"
+], supports_credentials=True)
+def submit_options():
+    """Handle preflight OPTIONS request for CORS."""
+    return '', 204
+
 @app.route('/api/submit', methods=['POST'])
+@cross_origin(origins=[
+    "https://workwavecoast.online",
+    "https://www.workwavecoast.online",
+    "http://workwavecoast.online",
+    "http://www.workwavecoast.online"
+], supports_credentials=True)
 def submit_application():
     """
     Submit a job application with form data and file uploads.
