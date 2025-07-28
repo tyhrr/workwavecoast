@@ -252,6 +252,44 @@ def get_applications():
             "error": str(e)
         }), 500
 
+@app.route('/api/applications/latest', methods=['GET'])
+def get_latest_application():
+    """
+    Retrieve the most recent job application from the database.
+
+    Returns:
+        dict: JSON response with the latest application details
+    """
+    try:
+        # Get the most recent application
+        latest_app = candidates.find().sort('created_at', -1).limit(1)
+        applications = list(latest_app)
+        
+        if applications:
+            app = applications[0]
+            # Convert ObjectId to string for JSON serialization
+            app['_id'] = str(app['_id'])
+            
+            return jsonify({
+                "success": True,
+                "application": app
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "application": None,
+                "message": "No applications found"
+            })
+
+    except (ConnectionError, TimeoutError, ValueError, TypeError, OSError, 
+            RuntimeError) as e:
+        print(f"Error fetching latest application: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Error fetching latest application",
+            "error": str(e)
+        }), 500
+
 @app.route('/api/test-cloudinary', methods=['GET'])
 def test_cloudinary():
     """Test Cloudinary configuration and connection."""
