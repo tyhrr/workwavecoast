@@ -140,11 +140,16 @@ def submit_application():
                 # Upload to Cloudinary (if configured)
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
                 print(f"Cloudinary cloud_name: {cloud_name}")
-
+                
+                # Skip Cloudinary if cloud_name is the problematic one
+                if cloud_name == 'dde3kelt':
+                    print("Skipping Cloudinary due to invalid cloud_name 'dde3kelt'")
+                    cloud_name = None
+                
                 if cloud_name and cloud_name != 'tu_cloud_name':
                     try:
                         print(f"Attempting to upload {field_name} to Cloudinary...")
-
+                        
                         # Upload with specific options for different file types
                         upload_options = {
                             'folder': 'workwave_coast',
@@ -170,7 +175,8 @@ def submit_application():
                             'format': upload_result.get('format', ''),
                             'bytes': upload_result.get('bytes', 0),
                             'pages': (upload_result.get('pages', 1)
-                                     if 'pages' in upload_result else 1)
+                                     if 'pages' in upload_result else 1),
+                            'status': 'cloudinary_upload_success'
                         }
 
                     except Exception as e:
@@ -180,7 +186,8 @@ def submit_application():
                             'filename': file.filename,
                             'size_bytes': file_size,
                             'status': 'cloudinary_upload_failed',
-                            'error': str(e)
+                            'error': str(e),
+                            'note': 'File received but not uploaded to cloud storage'
                         }
                         print(f"Saved file info as fallback: {file_urls[field_name]}")
                 else:
@@ -189,10 +196,9 @@ def submit_application():
                     file_urls[field_name] = {
                         'filename': file.filename,
                         'size_bytes': file_size,
-                        'status': 'cloudinary_not_configured'
-                    }
-
-        # Add file URLs to data (convert to JSON string for MongoDB storage)
+                        'status': 'cloudinary_not_configured',
+                        'note': 'File received but stored locally due to missing Cloudinary config'
+                    }        # Add file URLs to data (convert to JSON string for MongoDB storage)
         data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
         print(f"Final data to insert: {data}")
