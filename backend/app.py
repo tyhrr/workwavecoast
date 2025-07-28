@@ -6,7 +6,7 @@ Flask application for managing job applications on the Croatian coast.
 Handles file uploads to Cloudinary and stores application data in MongoDB Atlas.
 
 Author: WorkWave Team
-Version: 1.0.0
+Version: 1.1.0 - Cloudinary Integration Active
 """
 
 import os
