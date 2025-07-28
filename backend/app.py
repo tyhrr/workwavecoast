@@ -140,16 +140,11 @@ def submit_application():
                 # Upload to Cloudinary (if configured)
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
                 print(f"Cloudinary cloud_name: {cloud_name}")
-                
-                # Skip Cloudinary if cloud_name is the problematic one
-                if cloud_name == 'dde3kelt':
-                    print("Skipping Cloudinary due to invalid cloud_name 'dde3kelt'")
-                    cloud_name = None
-                
+
                 if cloud_name and cloud_name != 'tu_cloud_name':
                     try:
                         print(f"Attempting to upload {field_name} to Cloudinary...")
-                        
+
                         # Upload with specific options for different file types
                         upload_options = {
                             'folder': 'workwave_coast',
