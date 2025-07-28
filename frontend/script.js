@@ -7,12 +7,12 @@ function getApiBaseUrl() {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:5000/api/submit';
     }
-    // TEMPORAL: Usar backend local hasta que se despliegue en Render
+    // Producción con dominio personalizado
     if (window.location.hostname === 'workwavecoast.online') {
-        return 'http://localhost:5000/api/submit';
+        return 'https://workwavecoast.onrender.com/api/submit';
     }
     // Fallback para GitHub Pages
-    return 'https://workwavecoast-backend.onrender.com/api/submit';
+    return 'https://workwavecoast.onrender.com/api/submit';
 }
 
 document.getElementById('applicationForm').addEventListener('submit', async function(e) {
