@@ -1,0 +1,13 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pylintArgs": [
+        "--disable=C0303,trailing-whitespace,line-too-long,broad-exception-caught",
+        "--max-line-length=100",
+        "--good-names=i,j,k,ex,Run,_,id,db,cv"
+    ],
+    "python.linting.flake8Enabled": false,
+    "python.linting.mypyEnabled": false,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+}

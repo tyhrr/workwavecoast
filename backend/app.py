@@ -10,6 +10,7 @@ Version: 1.0.0
 """
 
 import os
+import json
 from datetime import datetime
 
 from flask import Flask, request, jsonify
@@ -28,7 +29,7 @@ CORS(app, origins=[
     "https://workwavecoast.online",
     "https://www.workwavecoast.online",
     "http://workwavecoast.online",
-    "http://www.workwavecoast.online", 
+    "http://www.workwavecoast.online",
     "http://localhost:3000",
     "http://127.0.0.1:5500",
     "http://localhost:5000"
@@ -77,7 +78,7 @@ def submit_application():
         data['status'] = 'pending'
 
         # File size limits (in bytes)
-        FILE_SIZE_LIMITS = {
+        file_size_limits = {
             'cv': 1024 * 1024,  # 1MB for CV
             'documentos': 2 * 1024 * 1024  # 2MB for additional documents
         }
@@ -89,20 +90,22 @@ def submit_application():
         for field_name, file in files.items():
             if file and file.filename:
                 # Validate file size
-                if field_name in FILE_SIZE_LIMITS:
+                if field_name in file_size_limits:
                     file.seek(0, 2)  # Seek to end
                     file_size = file.tell()
                     file.seek(0)  # Reset to beginning
-                    
-                    if file_size > FILE_SIZE_LIMITS[field_name]:
-                        max_size_mb = FILE_SIZE_LIMITS[field_name] / (1024 * 1024)
+
+                    if file_size > file_size_limits[field_name]:
+                        max_size_mb = file_size_limits[field_name] / (1024 * 1024)
                         return jsonify({
                             "success": False,
-                            "message": f"El archivo {field_name} es demasiado grande. Máximo: {max_size_mb}MB"
+                            "message": (f"El archivo {field_name} es demasiado grande. "
+                                       f"Máximo: {max_size_mb}MB")
                         }), 413
 
                 # Upload to Cloudinary (if configured)
-                if os.getenv('CLOUDINARY_CLOUD_NAME') and os.getenv('CLOUDINARY_CLOUD_NAME') != 'tu_cloud_name':
+                cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+                if cloud_name and cloud_name != 'tu_cloud_name':
                     try:
                         # Upload with specific options for different file types
                         upload_options = {
@@ -111,27 +114,32 @@ def submit_application():
                             'use_filename': True,
                             'unique_filename': True
                         }
-                        
+
                         # Add PDF-specific options for CVs
-                        if field_name == 'cv' and file.filename.lower().endswith('.pdf'):
+                        if (field_name == 'cv' and
+                            file.filename.lower().endswith('.pdf')):
                             upload_options['format'] = 'pdf'
                             upload_options['pages'] = True  # Enable page count
-                        
-                        upload_result = cloudinary.uploader.upload(file, **upload_options)
-                        
+
+                        upload_result = cloudinary.uploader.upload(
+                            file, **upload_options)
+
                         file_urls[field_name] = {
                             'url': upload_result['secure_url'],
                             'public_id': upload_result['public_id'],
                             'format': upload_result.get('format', ''),
                             'bytes': upload_result.get('bytes', 0),
-                            'pages': upload_result.get('pages', 1) if 'pages' in upload_result else 1
+                            'pages': (upload_result.get('pages', 1)
+                                     if 'pages' in upload_result else 1)
                         }
-                        
-                    except Exception as e:
+
+                    except (ValueError, KeyError, ConnectionError, OSError,
+                            RuntimeError, AttributeError) as e:
                         print(f"Error uploading {field_name} to Cloudinary: {e}")
                         return jsonify({
                             "success": False,
-                            "message": f"Error uploading {field_name}. Please try again."
+                            "message": (f"Error uploading {field_name}. "
+                                       "Please try again.")
                         }), 500
                 else:
                     # Fallback: save basic file info if Cloudinary not configured
@@ -140,8 +148,8 @@ def submit_application():
                         'note': 'Cloudinary not configured'
                     }
 
-        # Add file URLs to data
-        data['files'] = file_urls
+        # Add file URLs to data (convert to JSON string for MongoDB storage)
+        data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
         # Insert into MongoDB
         result = candidates.insert_one(data)
@@ -152,7 +160,8 @@ def submit_application():
             "application_id": str(result.inserted_id)
         }), 201
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, ConnectionError, OSError,
+            RuntimeError) as e:
         print(f"Error submitting application: {e}")
         return jsonify({
             "success": False,
@@ -206,10 +215,10 @@ def health_check():
     try:
         # Test MongoDB connection
         client.admin.command('ping')
-        
+
         # Check Cloudinary configuration
         cloudinary_status = "configured" if (
-            os.getenv('CLOUDINARY_CLOUD_NAME') and 
+            os.getenv('CLOUDINARY_CLOUD_NAME') and
             os.getenv('CLOUDINARY_CLOUD_NAME') != 'tu_cloud_name'
         ) else "not_configured"
 

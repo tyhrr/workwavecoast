@@ -1,17 +1,18 @@
 [MESSAGES CONTROL]
 # Disable specific warnings that are acceptable in our context
 disable=
-    broad-exception-caught,     # We use specific exceptions now
-    broad-exception-raised,     # We use specific exceptions now
-    too-few-public-methods,     # Flask apps often have simple classes
-    import-error,               # Sometimes false positives with virtual envs
-    unused-import,              # Sometimes needed for side effects
-    line-too-long,              # Some lines naturally get long
-    missing-module-docstring,   # We have docstring now
-    missing-function-docstring, # We added docstrings
-    trailing-whitespace,        # Already cleaned
-    wrong-import-order,         # Our import order is correct now
-    too-many-except             # Sometimes needed for comprehensive error handling
+    broad-exception-caught,
+    broad-exception-raised,
+    too-few-public-methods,
+    import-error,
+    unused-import,
+    line-too-long,
+    missing-module-docstring,
+    missing-function-docstring,
+    trailing-whitespace,
+    wrong-import-order,
+    too-many-except,
+    C0303
 
 [FORMAT]
 # Maximum number of characters on a single line
