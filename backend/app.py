@@ -113,6 +113,7 @@ def submit_application():
         for field_name, file in files.items():
             if file and file.filename:
                 print(f"Processing file: {field_name} - {file.filename}")
+                file_size = 0  # Initialize file_size
                 
                 # Validate file size
                 if field_name in file_size_limits:
@@ -172,19 +173,23 @@ def submit_application():
                                      if 'pages' in upload_result else 1)
                         }
 
-                    except (ValueError, KeyError, ConnectionError, OSError,
-                            RuntimeError, AttributeError) as e:
+                    except Exception as e:
                         print(f"Error uploading {field_name} to Cloudinary: {e}")
-                        return jsonify({
-                            "success": False,
-                            "message": (f"Error uploading {field_name}. "
-                                       "Please try again.")
-                        }), 500
+                        # Fallback: save basic file info instead of failing
+                        file_urls[field_name] = {
+                            'filename': file.filename,
+                            'size_bytes': file_size,
+                            'status': 'cloudinary_upload_failed',
+                            'error': str(e)
+                        }
+                        print(f"Saved file info as fallback: {file_urls[field_name]}")
                 else:
                     # Fallback: save basic file info if Cloudinary not configured
+                    print(f"Cloudinary not configured, saving file info: {file.filename}")
                     file_urls[field_name] = {
                         'filename': file.filename,
-                        'note': 'Cloudinary not configured'
+                        'size_bytes': file_size,
+                        'status': 'cloudinary_not_configured'
                     }
 
         # Add file URLs to data (convert to JSON string for MongoDB storage)
