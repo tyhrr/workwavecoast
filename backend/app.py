@@ -463,6 +463,14 @@ def health_check():
             "timestamp": datetime.utcnow().isoformat()
         }), 500
 
+@app.route('/healthz', methods=['GET'])
+def healthz():
+    """
+    Simple health check endpoint for Render.
+    Returns a simple 200 OK response to indicate the service is running.
+    """
+    return jsonify({"status": "ok"}), 200
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
