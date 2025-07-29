@@ -88,12 +88,6 @@ def submit_application():
         dict: JSON response with success status and application ID
     """
     try:
-        print("=== Submit Application Debug ===")
-        print(f"Request method: {request.method}")
-        print(f"Request content type: {request.content_type}")
-        print(f"Form data: {dict(request.form)}")
-        print(f"Files: {list(request.files.keys())}")
-
         # Get form data
         data = request.form.to_dict()
 
@@ -101,10 +95,24 @@ def submit_application():
         data['created_at'] = datetime.utcnow().isoformat()
         data['status'] = 'pending'
 
-        # File size limits (in bytes)
+        # Validate required fields
+        required_fields = ['nombre', 'email', 'telefono']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    "success": False,
+                    "message": f"Campo requerido faltante: {field}"
+                }), 400
+
+        # File size limits (in bytes) and allowed extensions
         file_size_limits = {
             'cv': 1024 * 1024,  # 1MB for CV
             'documentos': 2 * 1024 * 1024  # 2MB for additional documents
+        }
+        
+        allowed_extensions = {
+            'cv': ['.pdf', '.doc', '.docx'],
+            'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
         }
 
         # Handle file uploads
@@ -113,8 +121,17 @@ def submit_application():
 
         for field_name, file in files.items():
             if file and file.filename:
-                print(f"Processing file: {field_name} - {file.filename}")
                 file_size = 0  # Initialize file_size
+                
+                # Validate file extension
+                if field_name in allowed_extensions:
+                    file_extension = os.path.splitext(file.filename)[1].lower()
+                    if file_extension not in allowed_extensions[field_name]:
+                        allowed = ', '.join(allowed_extensions[field_name])
+                        return jsonify({
+                            "success": False,
+                            "message": f"Tipo de archivo no permitido para {field_name}. Permitidos: {allowed}"
+                        }), 400
 
                 # Validate file size
                 if field_name in file_size_limits:
@@ -122,9 +139,7 @@ def submit_application():
                         file.seek(0, 2)  # Seek to end
                         file_size = file.tell()
                         file.seek(0)  # Reset to beginning
-                        print(f"File size: {file_size} bytes")
-                    except Exception as e:
-                        print(f"Error checking file size: {e}")
+                    except IOError:
                         return jsonify({
                             "success": False,
                             "message": f"Error al procesar el archivo {field_name}"
@@ -143,16 +158,8 @@ def submit_application():
                 api_key = os.getenv('CLOUDINARY_API_KEY')
                 api_secret = os.getenv('CLOUDINARY_API_SECRET')
 
-                print(f"=== CLOUDINARY RESTART CHECK ===")
-                print(f"Cloud Name: {cloud_name}")
-                print(f"API Key: {'SET' if api_key else 'NOT_SET'}")
-                print(f"API Secret: {'SET' if api_secret else 'NOT_SET'}")
-
                 if cloud_name and api_key and api_secret and cloud_name != 'tu_cloud_name':
                     try:
-                        print(f"🚀 ATTEMPTING CLOUDINARY UPLOAD - System v2.0.0")
-                        print(f"Uploading {field_name}: {file.filename}")
-
                         # Upload with specific options for different file types
                         upload_options = {
                             'folder': 'workwave_coast',
@@ -170,7 +177,6 @@ def submit_application():
                         print(f"Upload options: {upload_options}")
                         upload_result = cloudinary.uploader.upload(
                             file, **upload_options)
-                        print(f"✅ CLOUDINARY SUCCESS: {upload_result.get('secure_url', 'No URL')}")
 
                         file_urls[field_name] = {
                             'url': upload_result['secure_url'],
@@ -183,8 +189,7 @@ def submit_application():
                             'system_version': '2.0.0'
                         }
 
-                    except Exception as e:
-                        print(f"❌ CLOUDINARY FAILED: {e}")
+                    except (ValueError, ConnectionError, RuntimeError) as e:
                         # Fallback: save basic file info instead of failing
                         file_urls[field_name] = {
                             'filename': file.filename,
@@ -197,24 +202,19 @@ def submit_application():
                         print(f"Saved file info as fallback: {file_urls[field_name]}")
                 else:
                     # Fallback: save basic file info if Cloudinary not configured
-                    print(f"⚠️ CLOUDINARY NOT CONFIGURED - saving file info: {file.filename}")
                     file_urls[field_name] = {
                         'filename': file.filename,
                         'size_bytes': file_size,
                         'status': 'cloudinary_not_configured',
                         'note': 'File received but stored locally due to missing Cloudinary config',
                         'system_version': '2.0.0'
-                    }        # Add file URLs to data (convert to JSON string for MongoDB storage)
-        data['files'] = json.dumps(file_urls) if file_urls else "{}"
+                    }
 
-        print(f"Final data to insert: {data}")
-        print(f"MongoDB URI configured: {bool(MONGODB_URI)}")
-        print(f"Database name: {db.name}")
-        print(f"Collection name: candidates")
+        # Add file URLs to data (convert to JSON string for MongoDB storage)
+        data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
         # Insert into MongoDB
         result = candidates.insert_one(data)
-        print(f"Insert result: {result.inserted_id}")
 
         return jsonify({
             "success": True,
@@ -278,13 +278,13 @@ def get_latest_application():
         applications = list(latest_app)
 
         if applications:
-            app = applications[0]
+            application = applications[0]
             # Convert ObjectId to string for JSON serialization
-            app['_id'] = str(app['_id'])
+            application['_id'] = str(application['_id'])
 
             return jsonify({
                 "success": True,
-                "application": app
+                "application": application
             })
         else:
             return jsonify({
@@ -384,7 +384,7 @@ def system_status():
         cloudinary_status = "❌ Not configured"
         if all(cloudinary_vars.values()):
             try:
-                result = cloudinary.api.ping()
+                cloudinary.api.ping()
                 cloudinary_status = "✅ Connected and working"
             except Exception as e:
                 cloudinary_status = f"❌ Error: {str(e)}"
