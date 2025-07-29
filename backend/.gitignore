@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env.*
+app_backup.py
+*.backup
+*.bak

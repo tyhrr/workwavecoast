@@ -6,34 +6,70 @@ Flask application for managing job applications on the Croatian coast.
 Handles file uploads to Cloudinary and stores application data in MongoDB Atlas.
 
 Author: WorkWave Team
-Version: 2.0.0 - FULL SYSTEM RESTART
+Version: 2.1.0 - PERFORMANCE & MONITORING UPGRADE
 """
 
 import os
 import json
+import re
+import logging
 from datetime import datetime
+from functools import wraps
 
 from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for
 from flask_cors import CORS, cross_origin
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from pythonjsonlogger.json import JsonFormatter
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-from functools import wraps
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'workwave-admin-secret-2025')
 
-# Admin credentials (you should set these as environment variables)
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'workwave2025')
+# Configure structured logging
+def setup_logging():
+    """Configure structured JSON logging."""
+    if not app.debug:  # Only in production
+        handler = logging.StreamHandler()
+        formatter = JsonFormatter(
+            '%(asctime)s %(name)s %(levelname)s %(message)s'
+        )
+        handler.setFormatter(formatter)
+        app.logger.addHandler(handler)
+        app.logger.setLevel(logging.INFO)
+        app.logger.info("Structured logging configured")
 
-# Configure CORS for your custom domain
-CORS(app, origins=[
+# Initialize logging
+setup_logging()
+
+# Configure Rate Limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://",  # Use Redis in production: "redis://localhost:6379"
+)
+
+# Security: Force environment variables for production security
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required for security")
+app.secret_key = SECRET_KEY
+
+# Configuration constants - Force environment variables
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
+if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+    raise ValueError("ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required")
+
+# CORS origins
+ALLOWED_ORIGINS = [
     "https://workwavecoast.online",
     "https://www.workwavecoast.online",
     "http://workwavecoast.online",
@@ -41,20 +77,108 @@ CORS(app, origins=[
     "http://localhost:3000",
     "http://127.0.0.1:5500",
     "http://localhost:5000"
-], supports_credentials=True)
+]
+
+# Configure CORS
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
 
 # MongoDB configuration
 MONGODB_URI = os.getenv('MONGODB_URI')
-client = MongoClient(MONGODB_URI)
-db = client['workwave']  # Database name
-candidates = db['candidates']  # Collection name
+if not MONGODB_URI:
+    raise ValueError("MONGODB_URI environment variable is required")
 
-# Cloudinary configuration (if needed)
+client = MongoClient(MONGODB_URI)
+db = client['workwave']
+candidates = db['candidates']
+
+# Create MongoDB indexes for better performance
+def create_indexes():
+    """Create database indexes for optimal query performance."""
+    try:
+        # Index for sorting applications by date (most common query)
+        candidates.create_index([("created_at", -1)])
+
+        # Index for email uniqueness and quick lookups
+        candidates.create_index([("email", 1)], unique=False)  # Allow duplicates for now
+
+        # Compound index for filtering by position and date
+        candidates.create_index([("puesto", 1), ("created_at", -1)])
+
+        # Index for status filtering
+        candidates.create_index([("status", 1)])
+
+        # Text index for searching names
+        candidates.create_index([
+            ("nombre", "text"),
+            ("apellido", "text"),
+            ("email", "text")
+        ])
+
+        app.logger.info("MongoDB indexes created successfully")
+
+    except Exception as e:
+        app.logger.warning(f"Error creating indexes: {e}")
+
+# Initialize indexes
+create_indexes()
+
+# Cloudinary configuration
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
     api_key=os.getenv('CLOUDINARY_API_KEY'),
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
+
+# File configuration constants
+FILE_SIZE_LIMITS = {
+    'cv': 1024 * 1024,  # 1MB for CV
+    'documentos': 2 * 1024 * 1024  # 2MB for additional documents
+}
+
+ALLOWED_EXTENSIONS = {
+    'cv': ['.pdf', '.doc', '.docx'],
+    'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
+}
+
+REQUIRED_FIELDS = ['nombre', 'email', 'telefono']
+
+# Input validation patterns
+VALIDATION_PATTERNS = {
+    'email': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    'telefono': r'^[\+]?[0-9\s\-\(\)]{7,20}$',
+    'nombre': r'^[a-zA-ZÀ-ÿ\s]{1,50}$',
+    'apellido': r'^[a-zA-ZÀ-ÿ\s]{1,50}$'
+}
+
+
+def validate_application_data(data):
+    """Validate application form data for security and format."""
+    errors = []
+
+    # Check required fields
+    for field in REQUIRED_FIELDS:
+        if not data.get(field) or not data.get(field).strip():
+            errors.append(f"Campo requerido faltante o vacío: {field}")
+
+    # Validate field formats
+    for field, pattern in VALIDATION_PATTERNS.items():
+        if field in data and data[field]:
+            if not re.match(pattern, data[field].strip()):
+                errors.append(f"Formato inválido para {field}")
+
+    # Validate field lengths to prevent DoS
+    max_lengths = {
+        'nombre': 50, 'apellido': 50, 'email': 100, 'telefono': 20,
+        'nacionalidad': 50, 'puesto': 50, 'experiencia': 500,
+        'motivacion': 1000, 'disponibilidad': 200
+    }
+
+    for field, max_length in max_lengths.items():
+        if field in data and data[field] and len(data[field]) > max_length:
+            errors.append(f"Campo {field} excede la longitud máxima de {max_length} caracteres")
+
+    return len(errors) == 0, errors
+
 
 def login_required(f):
     """Decorator to require admin login for protected routes."""
@@ -65,27 +189,187 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+def validate_file(file, field_name):
+    """Validate uploaded file size and extension."""
+    if not file or not file.filename:
+        return True, None, 0
+
+    # Validate file extension
+    if field_name in ALLOWED_EXTENSIONS:
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        if file_extension not in ALLOWED_EXTENSIONS[field_name]:
+            allowed = ', '.join(ALLOWED_EXTENSIONS[field_name])
+            return False, f"Tipo de archivo no permitido para {field_name}. Permitidos: {allowed}", 0
+
+    # Validate file size
+    try:
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+    except IOError:
+        return False, f"Error al procesar el archivo {field_name}", 0
+
+    if field_name in FILE_SIZE_LIMITS and file_size > FILE_SIZE_LIMITS[field_name]:
+        max_size_mb = FILE_SIZE_LIMITS[field_name] / (1024 * 1024)
+        return False, f"El archivo {field_name} es demasiado grande. Máximo: {max_size_mb}MB", file_size
+
+    return True, None, file_size
+
+
+def upload_to_cloudinary(file, field_name, file_size):
+    """Upload file to Cloudinary with proper error handling."""
+    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+    api_key = os.getenv('CLOUDINARY_API_KEY')
+    api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+    # Check if Cloudinary is properly configured
+    if not all([cloud_name, api_key, api_secret]) or cloud_name == 'tu_cloud_name':
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'cloudinary_not_configured',
+            'note': 'File received but stored locally due to missing Cloudinary config',
+            'system_version': '2.0.2'
+        }
+
+    try:
+        # Configure upload options
+        upload_options = {
+            'folder': 'workwave_coast',
+            'resource_type': 'auto',
+            'use_filename': True,
+            'unique_filename': True
+        }
+
+        # Add PDF-specific options for CVs
+        if field_name == 'cv' and file.filename.lower().endswith('.pdf'):
+            upload_options['format'] = 'pdf'
+            upload_options['pages'] = True
+
+        upload_result = cloudinary.uploader.upload(file, **upload_options)
+
+        return {
+            'url': upload_result['secure_url'],
+            'public_id': upload_result['public_id'],
+            'format': upload_result.get('format', ''),
+            'bytes': upload_result.get('bytes', 0),
+            'pages': upload_result.get('pages', 1) if 'pages' in upload_result else 1,
+            'status': 'cloudinary_upload_success',
+            'system_version': '2.0.2'
+        }
+
+    except Exception as e:
+        # Fallback: save basic file info instead of failing
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'cloudinary_upload_failed',
+            'error': str(e),
+            'note': 'File received but not uploaded to cloud storage',
+            'system_version': '2.0.2'
+        }
+
+
 # HTML Templates
-LOGIN_TEMPLATE = """
-<!DOCTYPE html>
+LOGIN_TEMPLATE = '''<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WorkWave Coast - Admin Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-               height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; }
-        .login-container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-                          max-width: 400px; width: 100%; }
-        .logo { text-align: center; margin-bottom: 2rem; color: #333; }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
-        input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
-        .btn { background: #667eea; color: white; padding: 0.75rem 1.5rem; border: none; 
-               border-radius: 5px; cursor: pointer; width: 100%; font-size: 1rem; }
-        .btn:hover { background: #5a67d8; }
-        .error { color: red; margin-top: 1rem; text-align: center; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            background: linear-gradient(135deg, #00587A 0%, #00B4D8 100%);
+            color: #1A2A36;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            z-index: 1;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #00587A;
+        }
+        .logo h1 {
+            font-size: 1.8rem;
+            margin: 0.5rem 0 0.7rem 0;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .logo p {
+            color: #0088B9;
+            font-weight: 500;
+            margin: 0;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+            color: #0088B9;
+            font-size: 0.9rem;
+        }
+        input[type="text"], input[type="password"] {
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #B2DFEE;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #F7FAFC;
+            color: #1A2A36;
+            transition: border 0.2s;
+            width: 100%;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #00B4D8;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+        }
+        .submit-btn {
+            background: linear-gradient(90deg, #0088B9 0%, #00B4D8 100%);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 2px 8px rgba(0,88,122,0.08);
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .submit-btn:hover {
+            background: linear-gradient(90deg, #00587A 0%, #0088B9 100%);
+            box-shadow: 0 4px 16px rgba(0,88,122,0.13);
+            transform: translateY(-1px);
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -103,46 +387,235 @@ LOGIN_TEMPLATE = """
                 <label for="password">Contraseña:</label>
                 <input type="password" id="password" name="password" required>
             </div>
-            <button type="submit" class="btn">Iniciar Sesión</button>
+            <button type="submit" class="submit-btn">Iniciar Sesión</button>
             {% if error %}
                 <div class="error">{{ error }}</div>
             {% endif %}
         </form>
     </div>
 </body>
-</html>
-"""
+</html>'''
 
-ADMIN_TEMPLATE = """
-<!DOCTYPE html>
+
+ADMIN_TEMPLATE = '''<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WorkWave Coast - Panel de Administración</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
-        .header { background: #667eea; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
-        .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-        .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-        .applications { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .application { border-bottom: 1px solid #eee; padding: 1.5rem; }
-        .application:last-child { border-bottom: none; }
-        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .app-name { font-size: 1.2rem; font-weight: bold; color: #333; }
-        .app-date { color: #666; font-size: 0.9rem; }
-        .app-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-        .detail { padding: 0.5rem; background: #f8f9fa; border-radius: 4px; }
-        .detail strong { color: #333; }
-        .files { margin-top: 1rem; }
-        .file-link { display: inline-block; background: #28a745; color: white; padding: 0.5rem 1rem; 
-                    border-radius: 4px; text-decoration: none; margin-right: 0.5rem; margin-bottom: 0.5rem; }
-        .file-link:hover { background: #218838; }
-        .logout { background: #dc3545; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; }
-        .logout:hover { background: #c82333; }
-        .status { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; }
-        .status.pending { background: #fff3cd; color: #856404; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Montserrat', Arial, sans-serif;
+            background: #F7FAFC;
+            color: #1A2A36;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(90deg, #00587A 0%, #0088B9 100%);
+            color: #fff;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,88,122,0.08);
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 700;
+        }
+        .logout {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .logout:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+        .container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid #B2DFEE;
+        }
+        .stat-card h3 {
+            color: #00587A;
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .stat-number {
+            font-size: 2rem;
+            margin: 0;
+            font-weight: 700;
+        }
+        .filters-section {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #B2DFEE;
+        }
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+            color: #0088B9;
+            font-size: 0.9rem;
+        }
+        input[type="text"], select {
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #B2DFEE;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #F7FAFC;
+            color: #1A2A36;
+            transition: border 0.2s;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: #00B4D8;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.1);
+        }
+        .clear-btn {
+            background: #FFD180;
+            color: #00587A;
+            border: none;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .clear-btn:hover {
+            background: #ffc947;
+            transform: translateY(-1px);
+        }
+        .applications-list {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+            border: 1px solid #B2DFEE;
+        }
+        .application-item {
+            border-bottom: 1px solid #B2DFEE;
+            padding: 1rem 1.5rem;
+            transition: background 0.2s;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: center;
+        }
+        .application-item:last-child { border-bottom: none; }
+        .application-item:hover { background: #F7FAFC; }
+        .applicant-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .applicant-name {
+            font-weight: 600;
+            color: #00587A;
+            font-size: 1rem;
+        }
+        .applicant-details {
+            font-size: 0.85rem;
+            color: #0088B9;
+            margin-top: 0.2rem;
+        }
+        .job-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .job-position {
+            font-weight: 500;
+            color: #1A2A36;
+        }
+        .languages {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.2rem;
+        }
+        .application-date {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .application-files {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .file-link {
+            background: #00B4D8;
+            color: #fff;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .file-link:hover {
+            background: #0088B9;
+            transform: translateY(-1px);
+        }
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+            font-style: italic;
+        }
+        .results-count {
+            margin-bottom: 1rem;
+            color: #00587A;
+            font-weight: 500;
+        }
+        @media (max-width: 768px) {
+            .application-item {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            .filters-row {
+                grid-template-columns: 1fr;
+            }
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -150,148 +623,218 @@ ADMIN_TEMPLATE = """
         <h1>🏖️ WorkWave Coast - Panel de Administración</h1>
         <a href="/admin/logout" class="logout">Cerrar Sesión</a>
     </div>
-    
+
     <div class="container">
         <div class="stats">
             <div class="stat-card">
                 <h3>📊 Total Aplicaciones</h3>
-                <p style="font-size: 2rem; margin: 0; color: #667eea;">{{ applications|length }}</p>
+                <p class="stat-number" style="color: #00B4D8;">{{ applications|length }}</p>
             </div>
             <div class="stat-card">
                 <h3>📅 Hoy</h3>
-                <p style="font-size: 2rem; margin: 0; color: #28a745;">
-                {% set today_applications = [] %}
-                {% for app in applications %}
-                    {% if app.created_at.startswith('2025-07-29') %}
-                        {% set _ = today_applications.append(app) %}
-                    {% endif %}
-                {% endfor %}
-                {{ today_applications|length }}
-                </p>
+                <p class="stat-number" style="color: #FFD180;">{{ today_count }}</p>
             </div>
             <div class="stat-card">
                 <h3>⏳ Pendientes</h3>
-                <p style="font-size: 2rem; margin: 0; color: #ffc107;">
-                {% set pending_applications = [] %}
-                {% for app in applications %}
-                    {% if app.status == 'pending' %}
-                        {% set _ = pending_applications.append(app) %}
-                    {% endif %}
-                {% endfor %}
-                {{ pending_applications|length }}
-                </p>
+                <p class="stat-number" style="color: #0088B9;">{{ pending_count }}</p>
             </div>
         </div>
 
-        <div class="applications">
-            {% for app in applications %}
-            <div class="application">
-                <div class="app-header">
-                    <div class="app-name">{{ app.nombre }} {{ app.apellido }}</div>
-                    <div class="app-date">{{ app.created_at[:19]|replace('T', ' ') }}</div>
+        <div class="filters-section">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="searchFilter">🔍 Buscar por nombre o apellido:</label>
+                    <input type="text" id="searchFilter" placeholder="Ej: Juan, María, García..." onkeyup="filterApplications()">
                 </div>
-                
-                <div class="app-details">
-                    <div class="detail"><strong>Email:</strong> {{ app.email }}</div>
-                    <div class="detail"><strong>Teléfono:</strong> {{ app.telefono }}</div>
-                    <div class="detail"><strong>Nacionalidad:</strong> {{ app.nacionalidad }}</div>
-                    <div class="detail"><strong>Puesto:</strong> {{ app.puesto }}</div>
-                    <div class="detail"><strong>Español:</strong> {{ app.espanol_nivel }}</div>
-                    <div class="detail"><strong>Inglés:</strong> {{ app.ingles_nivel }}</div>
-                    {% if app.otro_idioma %}
-                    <div class="detail"><strong>{{ app.otro_idioma }}:</strong> {{ app.otro_idioma_nivel }}</div>
-                    {% endif %}
-                    <div class="detail">
-                        <strong>Estado:</strong> 
-                        <span class="status {{ app.status }}">{{ app.status.title() }}</span>
+                <div class="filter-group">
+                    <label for="jobFilter">💼 Filtrar por puesto:</label>
+                    <select id="jobFilter" onchange="filterApplications()">
+                        <option value="">Todos los puestos</option>
+                        <option value="Camarero/a">Camarero/a</option>
+                        <option value="Recepcionista">Recepcionista</option>
+                        <option value="Cocinero/a">Cocinero/a</option>
+                        <option value="Animador/a">Animador/a</option>
+                        <option value="Limpieza">Limpieza</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="englishFilter">🇬🇧 Nivel de inglés:</label>
+                    <select id="englishFilter" onchange="filterApplications()">
+                        <option value="">Todos los niveles</option>
+                        <option value="A1">A1 - Básico</option>
+                        <option value="A2">A2 - Pre-intermedio</option>
+                        <option value="B1">B1 - Intermedio</option>
+                        <option value="B2">B2 - Intermedio-Alto</option>
+                        <option value="C1">C1 - Avanzado</option>
+                        <option value="C2">C2 - Nativo</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button class="clear-btn" onclick="clearFilters()">Limpiar Filtros</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-count" id="resultsCount">
+            Mostrando {{ applications|length }} aplicaciones
+        </div>
+
+        <div class="applications-list">
+            {% for app in applications %}
+            <div class="application-item"
+                 data-name="{{ (app.nombre + ' ' + app.apellido).lower() }}"
+                 data-job="{{ app.puesto }}"
+                 data-english="{{ app.ingles_nivel }}">
+
+                <div class="applicant-info">
+                    <div class="applicant-name">{{ app.nombre|e }} {{ app.apellido|e }}</div>
+                    <div class="applicant-details">
+                        📧 {{ app.email|e }} | 📞 {{ app.telefono|e }} | 🌍 {{ app.nacionalidad|e }}
                     </div>
                 </div>
-                
-                {% if app.files_parsed %}
-                <div class="files">
-                    <strong>📎 Archivos:</strong><br>
-                    {% for file_type, file_info in app.files_parsed.items() %}
-                        {% if file_info.url %}
-                            <a href="{{ file_info.url }}" target="_blank" class="file-link">
-                                📄 {{ file_type.title() }} ({{ (file_info.bytes / 1024)|round(1) }}KB)
-                            </a>
-                        {% endif %}
-                    {% endfor %}
+
+                <div class="job-info">
+                    <div class="job-position">{{ app.puesto|e }}</div>
+                    <div class="languages">
+                        🇪🇸 {{ app.espanol_nivel|e }} | 🇬🇧 {{ app.ingles_nivel|e }}{% if app.otro_idioma %} | {{ app.otro_idioma|e }}: {{ app.otro_idioma_nivel|e }}{% endif %}
+                    </div>
                 </div>
-                {% endif %}
+
+                <div class="application-date">
+                    📅 {{ app.created_at[:10] }}<br>
+                    🕐 {{ app.created_at[11:16] }}
+                </div>
+
+                <div class="application-files">
+                    {% if app.files_parsed %}
+                        {% for file_type, file_info in app.files_parsed.items() %}
+                            {% if file_info.url %}
+                                <a href="{{ file_info.url }}" target="_blank" class="file-link">
+                                    {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
         </div>
-    </div>
-</body>
-</html>
-"""
 
+        <div id="noResults" class="no-results" style="display: none;">
+            No se encontraron aplicaciones que coincidan con los filtros seleccionados.
+        </div>
+    </div>
+
+    <script>
+        function filterApplications() {
+            const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+            const jobFilter = document.getElementById('jobFilter').value;
+            const englishFilter = document.getElementById('englishFilter').value;
+
+            const applications = document.querySelectorAll('.application-item');
+            let visibleCount = 0;
+
+            applications.forEach(app => {
+                const name = app.getAttribute('data-name');
+                const job = app.getAttribute('data-job');
+                const english = app.getAttribute('data-english');
+
+                const matchesSearch = name.includes(searchTerm);
+                const matchesJob = jobFilter === '' || job === jobFilter;
+                const matchesEnglish = englishFilter === '' || english === englishFilter;
+
+                if (matchesSearch && matchesJob && matchesEnglish) {
+                    app.style.display = 'grid';
+                    visibleCount++;
+                } else {
+                    app.style.display = 'none';
+                }
+            });
+
+            const resultsCount = document.getElementById('resultsCount');
+            const noResults = document.getElementById('noResults');
+
+            if (visibleCount === 0) {
+                resultsCount.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                resultsCount.style.display = 'block';
+                resultsCount.textContent = `Mostrando ${visibleCount} aplicaciones`;
+                noResults.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchFilter').value = '';
+            document.getElementById('jobFilter').value = '';
+            document.getElementById('englishFilter').value = '';
+            filterApplications();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            filterApplications();
+        });
+    </script>
+</body>
+</html>'''
+
+
+# Route handlers
 @app.route('/', methods=['GET'])
 def home():
-    """
-    Home endpoint that returns basic API information.
+    """Home endpoint that returns basic API information."""
+    return jsonify({
+        "message": "WorkWave Coast Backend API",
+        "status": "running",
+        "version": "2.1.0"
+    })
 
-    Returns:
-        dict: JSON response with API status and message
-    """
-    return jsonify({"message": "WorkWave Coast Backend API", "status": "running"})
 
 @app.route('/api/submit', methods=['OPTIONS'])
-@cross_origin(origins=[
-    "https://workwavecoast.online",
-    "https://www.workwavecoast.online",
-    "http://workwavecoast.online",
-    "http://www.workwavecoast.online"
-], supports_credentials=True)
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def submit_options():
     """Handle preflight OPTIONS request for CORS."""
     return '', 204
 
+
 @app.route('/api/submit', methods=['POST'])
-@cross_origin(origins=[
-    "https://workwavecoast.online",
-    "https://www.workwavecoast.online",
-    "http://workwavecoast.online",
-    "http://www.workwavecoast.online"
-], supports_credentials=True)
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
+@limiter.limit("5 per minute", error_message="Demasiadas solicitudes. Inténtalo en unos minutos.")
 def submit_application():
-    """
-    Submit a job application with form data and file uploads.
-
-    Accepts form data and files, uploads files to Cloudinary if configured,
-    and stores the application data in MongoDB.
-
-    Returns:
-        dict: JSON response with success status and application ID
-    """
+    """Submit a job application with form data and file uploads."""
     try:
+        app.logger.info("New application submission attempt", extra={
+            "endpoint": "/api/submit",
+            "remote_addr": get_remote_address(),
+            "user_agent": request.headers.get('User-Agent', 'Unknown')
+        })
+
         # Get form data
         data = request.form.to_dict()
 
-        # Add timestamp
+        # Validate input data
+        is_valid, validation_errors = validate_application_data(data)
+        if not is_valid:
+            app.logger.warning("Invalid application data submitted", extra={
+                "errors": validation_errors,
+                "remote_addr": get_remote_address()
+            })
+            return jsonify({
+                "success": False,
+                "message": "Datos de formulario inválidos",
+                "errors": validation_errors
+            }), 400
+
+        # Add timestamp and status
         data['created_at'] = datetime.utcnow().isoformat()
         data['status'] = 'pending'
 
-        # Validate required fields
-        required_fields = ['nombre', 'email', 'telefono']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({
-                    "success": False,
-                    "message": f"Campo requerido faltante: {field}"
-                }), 400
-
-        # File size limits (in bytes) and allowed extensions
-        file_size_limits = {
-            'cv': 1024 * 1024,  # 1MB for CV
-            'documentos': 2 * 1024 * 1024  # 2MB for additional documents
-        }
-
-        allowed_extensions = {
-            'cv': ['.pdf', '.doc', '.docx'],
-            'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
-        }
+        # Sanitize data (strip whitespace)
+        for key, value in data.items():
+            if isinstance(value, str):
+                data[key] = value.strip()
 
         # Handle file uploads
         files = request.files
@@ -299,100 +842,34 @@ def submit_application():
 
         for field_name, file in files.items():
             if file and file.filename:
-                file_size = 0  # Initialize file_size
+                # Validate file
+                is_valid, error_message, file_size = validate_file(file, field_name)
+                if not is_valid:
+                    app.logger.warning("Invalid file upload", extra={
+                        "field": field_name,
+                        "filename": file.filename,
+                        "error": error_message
+                    })
+                    return jsonify({
+                        "success": False,
+                        "message": error_message
+                    }), 400
 
-                # Validate file extension
-                if field_name in allowed_extensions:
-                    file_extension = os.path.splitext(file.filename)[1].lower()
-                    if file_extension not in allowed_extensions[field_name]:
-                        allowed = ', '.join(allowed_extensions[field_name])
-                        return jsonify({
-                            "success": False,
-                            "message": f"Tipo de archivo no permitido para {field_name}. Permitidos: {allowed}"
-                        }), 400
+                # Upload to Cloudinary
+                file_urls[field_name] = upload_to_cloudinary(file, field_name, file_size)
 
-                # Validate file size
-                if field_name in file_size_limits:
-                    try:
-                        file.seek(0, 2)  # Seek to end
-                        file_size = file.tell()
-                        file.seek(0)  # Reset to beginning
-                    except IOError:
-                        return jsonify({
-                            "success": False,
-                            "message": f"Error al procesar el archivo {field_name}"
-                        }), 400
-
-                    if file_size > file_size_limits[field_name]:
-                        max_size_mb = file_size_limits[field_name] / (1024 * 1024)
-                        return jsonify({
-                            "success": False,
-                            "message": (f"El archivo {field_name} es demasiado grande. "
-                                       f"Máximo: {max_size_mb}MB")
-                        }), 413
-
-                # Upload to Cloudinary (if configured)
-                cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-                api_key = os.getenv('CLOUDINARY_API_KEY')
-                api_secret = os.getenv('CLOUDINARY_API_SECRET')
-
-                if cloud_name and api_key and api_secret and cloud_name != 'tu_cloud_name':
-                    try:
-                        # Upload with specific options for different file types
-                        upload_options = {
-                            'folder': 'workwave_coast',
-                            'resource_type': 'auto',
-                            'use_filename': True,
-                            'unique_filename': True
-                        }
-
-                        # Add PDF-specific options for CVs
-                        if (field_name == 'cv' and
-                            file.filename.lower().endswith('.pdf')):
-                            upload_options['format'] = 'pdf'
-                            upload_options['pages'] = True  # Enable page count
-
-                        print(f"Upload options: {upload_options}")
-                        upload_result = cloudinary.uploader.upload(
-                            file, **upload_options)
-
-                        file_urls[field_name] = {
-                            'url': upload_result['secure_url'],
-                            'public_id': upload_result['public_id'],
-                            'format': upload_result.get('format', ''),
-                            'bytes': upload_result.get('bytes', 0),
-                            'pages': (upload_result.get('pages', 1)
-                                     if 'pages' in upload_result else 1),
-                            'status': 'cloudinary_upload_success',
-                            'system_version': '2.0.0'
-                        }
-
-                    except (ValueError, ConnectionError, RuntimeError) as e:
-                        # Fallback: save basic file info instead of failing
-                        file_urls[field_name] = {
-                            'filename': file.filename,
-                            'size_bytes': file_size,
-                            'status': 'cloudinary_upload_failed',
-                            'error': str(e),
-                            'note': 'File received but not uploaded to cloud storage',
-                            'system_version': '2.0.0'
-                        }
-                        print(f"Saved file info as fallback: {file_urls[field_name]}")
-                else:
-                    # Fallback: save basic file info if Cloudinary not configured
-                    file_urls[field_name] = {
-                        'filename': file.filename,
-                        'size_bytes': file_size,
-                        'status': 'cloudinary_not_configured',
-                        'note': 'File received but stored locally due to missing Cloudinary config',
-                        'system_version': '2.0.0'
-                    }
-
-        # Add file URLs to data (convert to JSON string for MongoDB storage)
+        # Add file URLs to data
         data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
         # Insert into MongoDB
         result = candidates.insert_one(data)
+
+        app.logger.info("Application submitted successfully", extra={
+            "application_id": str(result.inserted_id),
+            "applicant_name": f"{data.get('nombre', '')} {data.get('apellido', '')}",
+            "position": data.get('puesto', ''),
+            "files_count": len(file_urls)
+        })
 
         return jsonify({
             "success": True,
@@ -400,64 +877,89 @@ def submit_application():
             "application_id": str(result.inserted_id)
         }), 201
 
-    except (ValueError, KeyError, TypeError, ConnectionError, OSError,
-            RuntimeError) as e:
-        print(f"Error submitting application: {e}")
+    except Exception as e:
+        app.logger.error("Error submitting application", extra={
+            "error": str(e),
+            "remote_addr": get_remote_address()
+        })
         return jsonify({
             "success": False,
             "message": "Error submitting application",
             "error": str(e)
         }), 500
 
-@app.route('/api/applications', methods=['GET'])
-def get_applications():
-    """
-    Retrieve all job applications from the database.
 
-    Returns:
-        dict: JSON response with list of applications and count
-    """
+@app.route('/api/applications', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_applications():
+    """Retrieve job applications from the database with pagination."""
     try:
-        # Get all applications
-        applications = list(candidates.find({}, {"_id": 0}))
+        # Get pagination parameters
+        page = int(request.args.get('page', 1))
+        limit = min(int(request.args.get('limit', 50)), 100)  # Max 100 per page
+        skip = (page - 1) * limit
+
+        # Get filter parameters
+        position = request.args.get('position')
+        status = request.args.get('status')
+
+        # Build query
+        query = {}
+        if position:
+            query['puesto'] = position
+        if status:
+            query['status'] = status
+
+        # Get total count for pagination
+        total_count = candidates.count_documents(query)
+
+        # Get applications with pagination
+        applications_cursor = candidates.find(query, {"_id": 0}).sort('created_at', -1).skip(skip).limit(limit)
+        applications = list(applications_cursor)
+
+        # Calculate pagination info
+        total_pages = (total_count + limit - 1) // limit
+        has_next = page < total_pages
+        has_prev = page > 1
+
+        app.logger.info("Applications retrieved", extra={
+            "page": page,
+            "limit": limit,
+            "total_count": total_count,
+            "filters": query
+        })
 
         return jsonify({
             "success": True,
             "applications": applications,
-            "count": len(applications)
+            "pagination": {
+                "current_page": page,
+                "total_pages": total_pages,
+                "total_count": total_count,
+                "has_next": has_next,
+                "has_prev": has_prev,
+                "per_page": limit
+            }
         })
 
-    except (ConnectionError, TimeoutError) as e:
-        print(f"Database connection error: {e}")
-        return jsonify({
-            "success": False,
-            "message": "Database connection error",
-            "error": str(e)
-        }), 503
-    except (ValueError, TypeError, OSError) as e:
-        print(f"Unexpected error fetching applications: {e}")
+    except Exception as e:
+        app.logger.error("Error fetching applications", extra={"error": str(e)})
         return jsonify({
             "success": False,
             "message": "Error fetching applications",
             "error": str(e)
         }), 500
 
+
 @app.route('/api/applications/latest', methods=['GET'])
 def get_latest_application():
-    """
-    Retrieve the most recent job application from the database.
-
-    Returns:
-        dict: JSON response with the latest application details
-    """
+    """Retrieve the most recent job application from the database."""
     try:
-        # Get the most recent application
         latest_app = candidates.find().sort('created_at', -1).limit(1)
         applications = list(latest_app)
 
         if applications:
             application = applications[0]
-            # Convert ObjectId to string for JSON serialization
             application['_id'] = str(application['_id'])
 
             return jsonify({
@@ -471,14 +973,14 @@ def get_latest_application():
                 "message": "No applications found"
             })
 
-    except (ConnectionError, TimeoutError, ValueError, TypeError, OSError,
-            RuntimeError) as e:
+    except Exception as e:
         print(f"Error fetching latest application: {e}")
         return jsonify({
             "success": False,
             "message": "Error fetching latest application",
             "error": str(e)
         }), 500
+
 
 @app.route('/api/test-cloudinary', methods=['GET'])
 def test_cloudinary():
@@ -497,7 +999,7 @@ def test_cloudinary():
             }
         }
 
-        if not cloud_name or not api_key or not api_secret:
+        if not all([cloud_name, api_key, api_secret]):
             response_data.update({
                 "message": "Cloudinary environment variables not configured",
                 "instructions": {
@@ -512,7 +1014,6 @@ def test_cloudinary():
         # Test Cloudinary connection
         try:
             result = cloudinary.api.ping()
-
             response_data.update({
                 "success": True,
                 "message": "Cloudinary connection successful",
@@ -539,6 +1040,7 @@ def test_cloudinary():
             "message": "Unexpected error testing Cloudinary",
             "error": str(e)
         }), 500
+
 
 @app.route('/api/system-status', methods=['GET'])
 def system_status():
@@ -574,7 +1076,7 @@ def system_status():
             app_count = "Error counting"
 
         return jsonify({
-            "system_version": "2.0.0",
+            "system_version": "2.0.2",
             "restart_status": "✅ System restarted successfully",
             "mongodb": mongo_status,
             "cloudinary": {
@@ -591,22 +1093,16 @@ def system_status():
 
     except Exception as e:
         return jsonify({
-            "system_version": "2.0.0",
+            "system_version": "2.0.2",
             "restart_status": "❌ Error during status check",
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 500
 
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """
-    Health check endpoint to verify database connectivity.
-
-    Tests the MongoDB connection and returns the health status.
-
-    Returns:
-        dict: JSON response with health status and timestamp
-    """
+    """Health check endpoint to verify database connectivity."""
     try:
         # Test MongoDB connection
         client.admin.command('ping')
@@ -624,7 +1120,7 @@ def health_check():
             "timestamp": datetime.utcnow().isoformat()
         })
 
-    except (ConnectionError, TimeoutError) as e:
+    except Exception as e:
         return jsonify({
             "status": "unhealthy",
             "mongodb": "disconnected",
@@ -632,30 +1128,39 @@ def health_check():
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 503
-    except (ValueError, TypeError, OSError, RuntimeError) as e:
-        return jsonify({
-            "status": "unhealthy",
-            "mongodb": "unknown_error",
-            "cloudinary": "unknown",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
-        }), 500
+
 
 @app.route('/admin/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", error_message="Demasiados intentos de login. Espera unos minutos.")
 def admin_login():
     """Admin login page."""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
+        app.logger.info("Admin login attempt", extra={
+            "username": username,
+            "remote_addr": get_remote_address(),
+            "user_agent": request.headers.get('User-Agent', 'Unknown')
+        })
+
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['admin_logged_in'] = True
+            app.logger.info("Admin login successful", extra={
+                "username": username,
+                "remote_addr": get_remote_address()
+            })
             return redirect(url_for('admin_dashboard'))
         else:
+            app.logger.warning("Admin login failed", extra={
+                "username": username,
+                "remote_addr": get_remote_address()
+            })
             error = "Credenciales incorrectas"
             return render_template_string(LOGIN_TEMPLATE, error=error)
-    
+
     return render_template_string(LOGIN_TEMPLATE)
+
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -663,15 +1168,26 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
 
+
 @app.route('/admin')
 @app.route('/admin/')
 @login_required
 def admin_dashboard():
     """Admin dashboard to view applications."""
     try:
-        # Get all applications with proper sorting
-        applications = list(candidates.find({}).sort('created_at', -1))
-        
+        app.logger.info("Admin dashboard accessed", extra={
+            "remote_addr": get_remote_address(),
+            "user_agent": request.headers.get('User-Agent', 'Unknown')
+        })
+
+        # Get all applications with proper sorting (limit for performance)
+        applications = list(candidates.find({}).sort('created_at', -1).limit(1000))
+
+        # Calculate statistics in Python (more efficient and reliable)
+        today = datetime.utcnow().strftime('%Y-%m-%d')
+        today_count = 0
+        pending_count = 0
+
         # Convert ObjectId to string and parse files JSON
         for application in applications:
             application['_id'] = str(application['_id'])
@@ -680,21 +1196,89 @@ def admin_dashboard():
                     application['files_parsed'] = json.loads(application['files'])
                 except (json.JSONDecodeError, TypeError):
                     application['files_parsed'] = {}
-        
-        return render_template_string(ADMIN_TEMPLATE, applications=applications)
-    
-    except (ConnectionError, TimeoutError) as e:
-        return f"Error de conexión a la base de datos: {str(e)}", 500
-    except (ValueError, TypeError) as e:
-        return f"Error procesando datos: {str(e)}", 500
+
+            # Count today's applications
+            if application.get('created_at', '')[:10] == today:
+                today_count += 1
+
+            # Count pending applications
+            if application.get('status', 'pending') == 'pending':
+                pending_count += 1
+
+        app.logger.info("Admin dashboard loaded", extra={
+            "total_applications": len(applications),
+            "today_count": today_count,
+            "pending_count": pending_count
+        })
+
+        return render_template_string(
+            ADMIN_TEMPLATE,
+            applications=applications,
+            today_count=today_count,
+            pending_count=pending_count
+        )
+
+    except Exception as e:
+        app.logger.error("Error in admin dashboard", extra={"error": str(e)})
+        return f"Error: {str(e)}", 500
+
+
+@app.route('/api/metrics', methods=['GET'])
+@limiter.limit("10 per minute")
+def get_metrics():
+    """Get application metrics for monitoring."""
+    try:
+        # Basic metrics
+        today = datetime.utcnow().strftime('%Y-%m-%d')
+        yesterday = datetime.utcnow().replace(day=datetime.utcnow().day-1).strftime('%Y-%m-%d')
+
+        # Aggregate metrics
+        total_applications = candidates.count_documents({})
+        today_applications = candidates.count_documents({"created_at": {"$regex": f"^{today}"}})
+        yesterday_applications = candidates.count_documents({"created_at": {"$regex": f"^{yesterday}"}})
+        pending_applications = candidates.count_documents({"status": "pending"})
+
+        # Position statistics
+        position_stats = list(candidates.aggregate([
+            {"$group": {"_id": "$puesto", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]))
+
+        metrics = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "2.1.0",
+            "totals": {
+                "applications": total_applications,
+                "today": today_applications,
+                "yesterday": yesterday_applications,
+                "pending": pending_applications
+            },
+            "top_positions": position_stats,
+            "growth": {
+                "daily_change": today_applications - yesterday_applications,
+                "daily_change_percent": ((today_applications - yesterday_applications) / max(yesterday_applications, 1)) * 100
+            }
+        }
+
+        app.logger.info("Metrics requested", extra={"metrics": metrics})
+
+        return jsonify(metrics)
+
+    except Exception as e:
+        app.logger.error("Error generating metrics", extra={"error": str(e)})
+        return jsonify({
+            "success": False,
+            "message": "Error generating metrics",
+            "error": str(e)
+        }), 500
+
 
 @app.route('/healthz', methods=['GET'])
 def healthz():
-    """
-    Simple health check endpoint for Render.
-    Returns a simple 200 OK response to indicate the service is running.
-    """
+    """Simple health check endpoint for Render."""
     return jsonify({"status": "ok"}), 200
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
