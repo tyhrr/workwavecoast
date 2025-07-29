@@ -19,6 +19,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 
 # Load environment variables
 load_dotenv()
@@ -322,22 +323,21 @@ def test_cloudinary():
 
         # Test Cloudinary connection
         try:
-            import cloudinary.api
             result = cloudinary.api.ping()
-
+            
             response_data.update({
                 "success": True,
                 "message": "Cloudinary connection successful",
                 "cloudinary_response": result
             })
             return jsonify(response_data)
-
+            
         except Exception as cloudinary_error:
             response_data.update({
                 "message": f"Cloudinary connection failed: {str(cloudinary_error)}",
                 "possible_causes": [
                     "Invalid cloud_name - check if it matches your Cloudinary dashboard",
-                    "Invalid API key or secret",
+                    "Invalid API key or secret", 
                     "Network connectivity issues",
                     "Cloudinary service temporarily unavailable"
                 ],
