@@ -37,13 +37,13 @@ function validateFileSize(file, maxSize, fieldName) {
 // Validación en tiempo real de archivos
 document.addEventListener('DOMContentLoaded', function() {
     const fileInputs = document.querySelectorAll('input[type="file"][data-max-size]');
-    
+
     fileInputs.forEach(input => {
         input.addEventListener('change', function(e) {
             const file = e.target.files[0];
             const maxSize = parseInt(e.target.getAttribute('data-max-size'));
             const messageDiv = document.getElementById('message');
-            
+
             if (file) {
                 const error = validateFileSize(file, maxSize, e.target.name);
                 if (error) {
@@ -103,7 +103,7 @@ document.getElementById('applicationForm').addEventListener('submit', async func
     messageDiv.style.color = '#0088B9';
 
     const formData = new FormData(form);
-    
+
     // Renombrar campo de archivo adicional si es necesario
     if (formData.has('documentos')) {
         const file = form.elements['documentos'].files[0];
@@ -119,9 +119,9 @@ document.getElementById('applicationForm').addEventListener('submit', async func
                 'Accept': 'application/json'
             }
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok && result.success) {
             messageDiv.textContent = '✅ Postulación enviada correctamente. ¡Gracias por tu interés!';
             messageDiv.style.color = '#00B4D8';
