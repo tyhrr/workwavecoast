@@ -13,18 +13,26 @@ import os
 import json
 from datetime import datetime
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for
 from flask_cors import CORS, cross_origin
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from functools import wraps
+import hashlib
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'workwave-admin-secret-2025')
+
+# Admin credentials (you should set these as environment variables)
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'workwave2025')
+
 # Configure CORS for your custom domain
 CORS(app, origins=[
     "https://workwavecoast.online",
@@ -48,6 +56,167 @@ cloudinary.config(
     api_key=os.getenv('CLOUDINARY_API_KEY'),
     api_secret=os.getenv('CLOUDINARY_API_SECRET')
 )
+
+def login_required(f):
+    """Decorator to require admin login for protected routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# HTML Templates
+LOGIN_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Admin Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+               height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; }
+        .login-container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+                          max-width: 400px; width: 100%; }
+        .logo { text-align: center; margin-bottom: 2rem; color: #333; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        .btn { background: #667eea; color: white; padding: 0.75rem 1.5rem; border: none; 
+               border-radius: 5px; cursor: pointer; width: 100%; font-size: 1rem; }
+        .btn:hover { background: #5a67d8; }
+        .error { color: red; margin-top: 1rem; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>🏖️ WorkWave Coast</h1>
+            <p>Panel de Administración</p>
+        </div>
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn">Iniciar Sesión</button>
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+ADMIN_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Panel de Administración</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        .header { background: #667eea; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .applications { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .application { border-bottom: 1px solid #eee; padding: 1.5rem; }
+        .application:last-child { border-bottom: none; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .app-name { font-size: 1.2rem; font-weight: bold; color: #333; }
+        .app-date { color: #666; font-size: 0.9rem; }
+        .app-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+        .detail { padding: 0.5rem; background: #f8f9fa; border-radius: 4px; }
+        .detail strong { color: #333; }
+        .files { margin-top: 1rem; }
+        .file-link { display: inline-block; background: #28a745; color: white; padding: 0.5rem 1rem; 
+                    border-radius: 4px; text-decoration: none; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+        .file-link:hover { background: #218838; }
+        .logout { background: #dc3545; color: white; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; }
+        .logout:hover { background: #c82333; }
+        .status { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; }
+        .status.pending { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏖️ WorkWave Coast - Panel de Administración</h1>
+        <a href="/admin/logout" class="logout">Cerrar Sesión</a>
+    </div>
+    
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <h3>📊 Total Aplicaciones</h3>
+                <p style="font-size: 2rem; margin: 0; color: #667eea;">{{ applications|length }}</p>
+            </div>
+            <div class="stat-card">
+                <h3>📅 Hoy</h3>
+                <p style="font-size: 2rem; margin: 0; color: #28a745;">
+                {% set today_count = applications|selectattr('created_at', 'match', '2025-07-29.*')|list|length %}
+                {{ today_count }}
+                </p>
+            </div>
+            <div class="stat-card">
+                <h3>⏳ Pendientes</h3>
+                <p style="font-size: 2rem; margin: 0; color: #ffc107;">
+                {% set pending_count = applications|selectattr('status', 'equalto', 'pending')|list|length %}
+                {{ pending_count }}
+                </p>
+            </div>
+        </div>
+
+        <div class="applications">
+            {% for app in applications %}
+            <div class="application">
+                <div class="app-header">
+                    <div class="app-name">{{ app.nombre }} {{ app.apellido }}</div>
+                    <div class="app-date">{{ app.created_at[:19]|replace('T', ' ') }}</div>
+                </div>
+                
+                <div class="app-details">
+                    <div class="detail"><strong>Email:</strong> {{ app.email }}</div>
+                    <div class="detail"><strong>Teléfono:</strong> {{ app.telefono }}</div>
+                    <div class="detail"><strong>Nacionalidad:</strong> {{ app.nacionalidad }}</div>
+                    <div class="detail"><strong>Puesto:</strong> {{ app.puesto }}</div>
+                    <div class="detail"><strong>Español:</strong> {{ app.espanol_nivel }}</div>
+                    <div class="detail"><strong>Inglés:</strong> {{ app.ingles_nivel }}</div>
+                    {% if app.otro_idioma %}
+                    <div class="detail"><strong>{{ app.otro_idioma }}:</strong> {{ app.otro_idioma_nivel }}</div>
+                    {% endif %}
+                    <div class="detail">
+                        <strong>Estado:</strong> 
+                        <span class="status {{ app.status }}">{{ app.status.title() }}</span>
+                    </div>
+                </div>
+                
+                {% if app.files_parsed %}
+                <div class="files">
+                    <strong>📎 Archivos:</strong><br>
+                    {% for file_type, file_info in app.files_parsed.items() %}
+                        {% if file_info.url %}
+                            <a href="{{ file_info.url }}" target="_blank" class="file-link">
+                                📄 {{ file_type.title() }} ({{ (file_info.bytes / 1024)|round(1) }}KB)
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
+"""
 
 @app.route('/', methods=['GET'])
 def home():
@@ -109,7 +278,7 @@ def submit_application():
             'cv': 1024 * 1024,  # 1MB for CV
             'documentos': 2 * 1024 * 1024  # 2MB for additional documents
         }
-        
+
         allowed_extensions = {
             'cv': ['.pdf', '.doc', '.docx'],
             'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
@@ -122,7 +291,7 @@ def submit_application():
         for field_name, file in files.items():
             if file and file.filename:
                 file_size = 0  # Initialize file_size
-                
+
                 # Validate file extension
                 if field_name in allowed_extensions:
                     file_extension = os.path.splitext(file.filename)[1].lower()
@@ -462,6 +631,51 @@ def health_check():
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 500
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Admin login page."""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin_dashboard'))
+        else:
+            error = "Credenciales incorrectas"
+            return render_template_string(LOGIN_TEMPLATE, error=error)
+    
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout."""
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin')
+@app.route('/admin/')
+@login_required
+def admin_dashboard():
+    """Admin dashboard to view applications."""
+    try:
+        # Get all applications with proper sorting
+        applications = list(candidates.find({}).sort('created_at', -1))
+        
+        # Convert ObjectId to string and parse files JSON
+        for app in applications:
+            app['_id'] = str(app['_id'])
+            if 'files' in app:
+                try:
+                    app['files_parsed'] = json.loads(app['files'])
+                except:
+                    app['files_parsed'] = {}
+        
+        return render_template_string(ADMIN_TEMPLATE, applications=applications)
+    
+    except Exception as e:
+        return f"Error loading applications: {str(e)}", 500
 
 @app.route('/healthz', methods=['GET'])
 def healthz():
