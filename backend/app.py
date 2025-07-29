@@ -21,7 +21,6 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from functools import wraps
-import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -161,15 +160,25 @@ ADMIN_TEMPLATE = """
             <div class="stat-card">
                 <h3>📅 Hoy</h3>
                 <p style="font-size: 2rem; margin: 0; color: #28a745;">
-                {% set today_count = applications|selectattr('created_at', 'match', '2025-07-29.*')|list|length %}
-                {{ today_count }}
+                {% set today_applications = [] %}
+                {% for app in applications %}
+                    {% if app.created_at.startswith('2025-07-29') %}
+                        {% set _ = today_applications.append(app) %}
+                    {% endif %}
+                {% endfor %}
+                {{ today_applications|length }}
                 </p>
             </div>
             <div class="stat-card">
                 <h3>⏳ Pendientes</h3>
                 <p style="font-size: 2rem; margin: 0; color: #ffc107;">
-                {% set pending_count = applications|selectattr('status', 'equalto', 'pending')|list|length %}
-                {{ pending_count }}
+                {% set pending_applications = [] %}
+                {% for app in applications %}
+                    {% if app.status == 'pending' %}
+                        {% set _ = pending_applications.append(app) %}
+                    {% endif %}
+                {% endfor %}
+                {{ pending_applications|length }}
                 </p>
             </div>
         </div>
@@ -664,18 +673,20 @@ def admin_dashboard():
         applications = list(candidates.find({}).sort('created_at', -1))
         
         # Convert ObjectId to string and parse files JSON
-        for app in applications:
-            app['_id'] = str(app['_id'])
-            if 'files' in app:
+        for application in applications:
+            application['_id'] = str(application['_id'])
+            if 'files' in application:
                 try:
-                    app['files_parsed'] = json.loads(app['files'])
-                except:
-                    app['files_parsed'] = {}
+                    application['files_parsed'] = json.loads(application['files'])
+                except (json.JSONDecodeError, TypeError):
+                    application['files_parsed'] = {}
         
         return render_template_string(ADMIN_TEMPLATE, applications=applications)
     
-    except Exception as e:
-        return f"Error loading applications: {str(e)}", 500
+    except (ConnectionError, TimeoutError) as e:
+        return f"Error de conexión a la base de datos: {str(e)}", 500
+    except (ValueError, TypeError) as e:
+        return f"Error procesando datos: {str(e)}", 500
 
 @app.route('/healthz', methods=['GET'])
 def healthz():
