@@ -142,7 +142,7 @@ def submit_application():
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
                 api_key = os.getenv('CLOUDINARY_API_KEY')
                 api_secret = os.getenv('CLOUDINARY_API_SECRET')
-                
+
                 print(f"=== CLOUDINARY RESTART CHECK ===")
                 print(f"Cloud Name: {cloud_name}")
                 print(f"API Key: {'SET' if api_key else 'NOT_SET'}")
@@ -372,14 +372,14 @@ def system_status():
             'api_key': os.getenv('CLOUDINARY_API_KEY'),
             'api_secret': os.getenv('CLOUDINARY_API_SECRET')
         }
-        
+
         # Test MongoDB
         try:
             client.admin.command('ping')
             mongo_status = "✅ Connected"
         except Exception as e:
             mongo_status = f"❌ Error: {str(e)}"
-        
+
         # Test Cloudinary
         cloudinary_status = "❌ Not configured"
         if all(cloudinary_vars.values()):
@@ -388,13 +388,13 @@ def system_status():
                 cloudinary_status = "✅ Connected and working"
             except Exception as e:
                 cloudinary_status = f"❌ Error: {str(e)}"
-        
+
         # Count applications
         try:
             app_count = candidates.count_documents({})
         except Exception:
             app_count = "Error counting"
-        
+
         return jsonify({
             "system_version": "2.0.0",
             "restart_status": "✅ System restarted successfully",
@@ -403,14 +403,14 @@ def system_status():
                 "status": cloudinary_status,
                 "variables": {
                     "cloud_name": cloudinary_vars['cloud_name'] or "NOT_SET",
-                    "api_key": "SET" if cloudinary_vars['api_key'] else "NOT_SET", 
+                    "api_key": "SET" if cloudinary_vars['api_key'] else "NOT_SET",
                     "api_secret": "SET" if cloudinary_vars['api_secret'] else "NOT_SET"
                 }
             },
             "applications_count": app_count,
             "timestamp": datetime.utcnow().isoformat()
         })
-        
+
     except Exception as e:
         return jsonify({
             "system_version": "2.0.0",
