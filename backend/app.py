@@ -6,7 +6,7 @@ Flask application for managing job applications on the Croatian coast.
 Handles file uploads to Cloudinary and stores application data in MongoDB Atlas.
 
 Author: WorkWave Team
-Version: 1.1.1 - Force Environment Variables Refresh
+Version: 2.0.0 - FULL SYSTEM RESTART
 """
 
 import os
@@ -140,11 +140,18 @@ def submit_application():
 
                 # Upload to Cloudinary (if configured)
                 cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-                print(f"Cloudinary cloud_name: {cloud_name}")
+                api_key = os.getenv('CLOUDINARY_API_KEY')
+                api_secret = os.getenv('CLOUDINARY_API_SECRET')
+                
+                print(f"=== CLOUDINARY RESTART CHECK ===")
+                print(f"Cloud Name: {cloud_name}")
+                print(f"API Key: {'SET' if api_key else 'NOT_SET'}")
+                print(f"API Secret: {'SET' if api_secret else 'NOT_SET'}")
 
-                if cloud_name and cloud_name != 'tu_cloud_name':
+                if cloud_name and api_key and api_secret and cloud_name != 'tu_cloud_name':
                     try:
-                        print(f"Attempting to upload {field_name} to Cloudinary...")
+                        print(f"🚀 ATTEMPTING CLOUDINARY UPLOAD - System v2.0.0")
+                        print(f"Uploading {field_name}: {file.filename}")
 
                         # Upload with specific options for different file types
                         upload_options = {
@@ -163,7 +170,7 @@ def submit_application():
                         print(f"Upload options: {upload_options}")
                         upload_result = cloudinary.uploader.upload(
                             file, **upload_options)
-                        print(f"Upload successful: {upload_result.get('secure_url', 'No URL')}")
+                        print(f"✅ CLOUDINARY SUCCESS: {upload_result.get('secure_url', 'No URL')}")
 
                         file_urls[field_name] = {
                             'url': upload_result['secure_url'],
@@ -172,28 +179,31 @@ def submit_application():
                             'bytes': upload_result.get('bytes', 0),
                             'pages': (upload_result.get('pages', 1)
                                      if 'pages' in upload_result else 1),
-                            'status': 'cloudinary_upload_success'
+                            'status': 'cloudinary_upload_success',
+                            'system_version': '2.0.0'
                         }
 
                     except Exception as e:
-                        print(f"Error uploading {field_name} to Cloudinary: {e}")
+                        print(f"❌ CLOUDINARY FAILED: {e}")
                         # Fallback: save basic file info instead of failing
                         file_urls[field_name] = {
                             'filename': file.filename,
                             'size_bytes': file_size,
                             'status': 'cloudinary_upload_failed',
                             'error': str(e),
-                            'note': 'File received but not uploaded to cloud storage'
+                            'note': 'File received but not uploaded to cloud storage',
+                            'system_version': '2.0.0'
                         }
                         print(f"Saved file info as fallback: {file_urls[field_name]}")
                 else:
                     # Fallback: save basic file info if Cloudinary not configured
-                    print(f"Cloudinary not configured, saving file info: {file.filename}")
+                    print(f"⚠️ CLOUDINARY NOT CONFIGURED - saving file info: {file.filename}")
                     file_urls[field_name] = {
                         'filename': file.filename,
                         'size_bytes': file_size,
                         'status': 'cloudinary_not_configured',
-                        'note': 'File received but stored locally due to missing Cloudinary config'
+                        'note': 'File received but stored locally due to missing Cloudinary config',
+                        'system_version': '2.0.0'
                     }        # Add file URLs to data (convert to JSON string for MongoDB storage)
         data['files'] = json.dumps(file_urls) if file_urls else "{}"
 
@@ -350,6 +360,63 @@ def test_cloudinary():
             "success": False,
             "message": "Unexpected error testing Cloudinary",
             "error": str(e)
+        }), 500
+
+@app.route('/api/system-status', methods=['GET'])
+def system_status():
+    """Complete system status check for restart verification."""
+    try:
+        # Check environment variables
+        cloudinary_vars = {
+            'cloud_name': os.getenv('CLOUDINARY_CLOUD_NAME'),
+            'api_key': os.getenv('CLOUDINARY_API_KEY'),
+            'api_secret': os.getenv('CLOUDINARY_API_SECRET')
+        }
+        
+        # Test MongoDB
+        try:
+            client.admin.command('ping')
+            mongo_status = "✅ Connected"
+        except Exception as e:
+            mongo_status = f"❌ Error: {str(e)}"
+        
+        # Test Cloudinary
+        cloudinary_status = "❌ Not configured"
+        if all(cloudinary_vars.values()):
+            try:
+                result = cloudinary.api.ping()
+                cloudinary_status = "✅ Connected and working"
+            except Exception as e:
+                cloudinary_status = f"❌ Error: {str(e)}"
+        
+        # Count applications
+        try:
+            app_count = candidates.count_documents({})
+        except Exception:
+            app_count = "Error counting"
+        
+        return jsonify({
+            "system_version": "2.0.0",
+            "restart_status": "✅ System restarted successfully",
+            "mongodb": mongo_status,
+            "cloudinary": {
+                "status": cloudinary_status,
+                "variables": {
+                    "cloud_name": cloudinary_vars['cloud_name'] or "NOT_SET",
+                    "api_key": "SET" if cloudinary_vars['api_key'] else "NOT_SET", 
+                    "api_secret": "SET" if cloudinary_vars['api_secret'] else "NOT_SET"
+                }
+            },
+            "applications_count": app_count,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "system_version": "2.0.0",
+            "restart_status": "❌ Error during status check",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
         }), 500
 
 @app.route('/api/health', methods=['GET'])
