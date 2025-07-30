@@ -578,6 +578,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         .application-files {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
         }
         .file-link {
             background: #00B4D8;
@@ -588,6 +589,59 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             font-size: 0.8rem;
             font-weight: 500;
             transition: all 0.2s;
+            cursor: pointer;
+        }
+        .file-link:hover {
+            background: #0088B9;
+            transform: translateY(-1px);
+        }
+        .file-error {
+            background: #ff6b6b !important;
+            cursor: help;
+        }
+        .no-files {
+            color: #999;
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+        .file-details {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            padding: 0.8rem;
+            border-radius: 6px;
+            border-top: 1px solid #e9ecef;
+            margin-top: 0.5rem;
+        }
+        .file-detail-item {
+            margin-bottom: 0.3rem;
+            font-size: 0.8rem;
+        }
+        .file-detail-item strong {
+            color: #00587A;
+        }
+        .file-detail-item a {
+            color: #00B4D8;
+            text-decoration: none;
+        }
+        .file-detail-item a:hover {
+            text-decoration: underline;
+        }
+        .file-detail-item small {
+            color: #666;
+            margin-left: 0.5rem;
+        }
+        .expand-btn {
+            background: #FFD180;
+            color: #00587A;
+            border: none;
+            border-radius: 3px;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .expand-btn:hover {
+            background: #ffc947;
         }
         .file-link:hover {
             background: #0088B9;
@@ -713,10 +767,37 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     {% if app.get('files_parsed') %}
                         {% for file_type, file_info in app.get('files_parsed', {}).items() %}
                             {% if file_info.get('url') %}
-                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link">
+                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link" title="Ver {{ file_type }} - {{ file_info.get('filename', 'archivo') }}">
                                     {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }}
                                 </a>
+                            {% elif file_info.get('filename') %}
+                                <span class="file-link file-error" title="Archivo: {{ file_info.get('filename') }} - {{ file_info.get('note', 'Error al cargar') }}">
+                                    {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }} ⚠️
+                                </span>
                             {% endif %}
+                        {% endfor %}
+                        <button class="expand-btn" onclick="toggleFileDetails(this)" title="Ver detalles de archivos">
+                            📋
+                        </button>
+                    {% else %}
+                        <span class="no-files">Sin archivos</span>
+                    {% endif %}
+                </div>
+
+                <!-- Detailed file info (expandable) -->
+                <div class="file-details" style="display: none;">
+                    {% if app.get('files_parsed') %}
+                        {% for file_type, file_info in app.get('files_parsed', {}).items() %}
+                            <div class="file-detail-item">
+                                <strong>{{ file_type.title() }}:</strong>
+                                {% if file_info.get('url') %}
+                                    <a href="{{ file_info.get('url') }}" target="_blank">{{ file_info.get('filename', 'Ver archivo') }}</a>
+                                    <small>({{ (file_info.get('bytes', 0) / 1024) | round(1) }} KB)</small>
+                                {% else %}
+                                    <span>{{ file_info.get('filename', 'N/A') }}</span>
+                                    <small>({{ file_info.get('status', 'Error') }})</small>
+                                {% endif %}
+                            </div>
                         {% endfor %}
                     {% endif %}
                 </div>
@@ -773,6 +854,21 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             document.getElementById('jobFilter').value = '';
             document.getElementById('englishFilter').value = '';
             filterApplications();
+        }
+
+        function toggleFileDetails(button) {
+            const applicationItem = button.closest('.application-item');
+            const fileDetails = applicationItem.querySelector('.file-details');
+            
+            if (fileDetails.style.display === 'none' || fileDetails.style.display === '') {
+                fileDetails.style.display = 'block';
+                button.textContent = '📋 ❌';
+                button.title = 'Ocultar detalles';
+            } else {
+                fileDetails.style.display = 'none';
+                button.textContent = '📋';
+                button.title = 'Ver detalles de archivos';
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1196,8 +1292,18 @@ def admin_dashboard():
             if 'files' in application:
                 try:
                     application['files_parsed'] = json.loads(application['files'])
+                    # Log file URLs for debugging
+                    if application['files_parsed']:
+                        app.logger.debug("Application files", extra={
+                            "applicant": f"{application.get('nombre', '')} {application.get('apellido', '')}",
+                            "files": application['files_parsed']
+                        })
                 except (json.JSONDecodeError, TypeError):
                     application['files_parsed'] = {}
+                    app.logger.warning("Failed to parse files JSON", extra={
+                        "applicant": f"{application.get('nombre', '')} {application.get('apellido', '')}",
+                        "raw_files": application.get('files', '')
+                    })
 
             # Count today's applications
             if application.get('created_at', '')[:10] == today:
