@@ -74,6 +74,8 @@ ALLOWED_ORIGINS = [
     "https://www.workwavecoast.online",
     "http://workwavecoast.online",
     "http://www.workwavecoast.online",
+    "https://admin.workwavecoast.online",  # Subdomain for admin panel
+    "https://workwavecoast.onrender.com",  # Your actual Render URL
     "http://localhost:3000",
     "http://127.0.0.1:5500",
     "http://localhost:5000"
