@@ -859,7 +859,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         function toggleFileDetails(button) {
             const applicationItem = button.closest('.application-item');
             const fileDetails = applicationItem.querySelector('.file-details');
-            
+
             if (fileDetails.style.display === 'none' || fileDetails.style.display === '') {
                 fileDetails.style.display = 'block';
                 button.textContent = '📋 ❌';
