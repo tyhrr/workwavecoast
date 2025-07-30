@@ -686,34 +686,34 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         <div class="applications-list">
             {% for app in applications %}
             <div class="application-item"
-                 data-name="{{ (app.nombre + ' ' + app.apellido).lower() }}"
-                 data-job="{{ app.puesto }}"
-                 data-english="{{ app.ingles_nivel }}">
+                 data-name="{{ (app.get('nombre', '') + ' ' + app.get('apellido', '')).lower() }}"
+                 data-job="{{ app.get('puesto', '') }}"
+                 data-english="{{ app.get('ingles_nivel', '') }}">
 
                 <div class="applicant-info">
-                    <div class="applicant-name">{{ app.nombre|e }} {{ app.apellido|e }}</div>
+                    <div class="applicant-name">{{ app.get('nombre', '')|e }} {{ app.get('apellido', '')|e }}</div>
                     <div class="applicant-details">
-                        📧 {{ app.email|e }} | 📞 {{ app.telefono|e }} | 🌍 {{ app.nacionalidad|e }}
+                        📧 {{ app.get('email', '')|e }} | 📞 {{ app.get('telefono', '')|e }} | 🌍 {{ app.get('nacionalidad', '')|e }}
                     </div>
                 </div>
 
                 <div class="job-info">
-                    <div class="job-position">{{ app.puesto|e }}</div>
+                    <div class="job-position">{{ app.get('puesto', '')|e }}</div>
                     <div class="languages">
-                        🇪🇸 {{ app.espanol_nivel|e }} | 🇬🇧 {{ app.ingles_nivel|e }}{% if app.otro_idioma %} | {{ app.otro_idioma|e }}: {{ app.otro_idioma_nivel|e }}{% endif %}
+                        🇪🇸 {{ app.get('espanol_nivel', '')|e }} | 🇬🇧 {{ app.get('ingles_nivel', '')|e }}{% if app.get('otro_idioma') %} | {{ app.get('otro_idioma', '')|e }}: {{ app.get('otro_idioma_nivel', '')|e }}{% endif %}
                     </div>
                 </div>
 
                 <div class="application-date">
-                    📅 {{ app.created_at[:10] }}<br>
-                    🕐 {{ app.created_at[11:16] }}
+                    📅 {{ app.get('created_at', '')[:10] }}<br>
+                    🕐 {{ app.get('created_at', '')[11:16] }}
                 </div>
 
                 <div class="application-files">
-                    {% if app.files_parsed %}
-                        {% for file_type, file_info in app.files_parsed.items() %}
-                            {% if file_info.url %}
-                                <a href="{{ file_info.url }}" target="_blank" class="file-link">
+                    {% if app.get('files_parsed') %}
+                        {% for file_type, file_info in app.get('files_parsed', {}).items() %}
+                            {% if file_info.get('url') %}
+                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link">
                                     {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }}
                                 </a>
                             {% endif %}
