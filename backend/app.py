@@ -220,7 +220,7 @@ def validate_file(file, field_name):
 
 
 def upload_to_cloudinary(file, field_name, file_size):
-    """Upload file to Cloudinary with proper error handling."""
+    """Upload file to Cloudinary with proper error handling and public access."""
     cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
     api_key = os.getenv('CLOUDINARY_API_KEY')
     api_secret = os.getenv('CLOUDINARY_API_SECRET')
@@ -236,12 +236,14 @@ def upload_to_cloudinary(file, field_name, file_size):
         }
 
     try:
-        # Configure upload options
+        # Configure upload options with public access
         upload_options = {
             'folder': 'workwave_coast',
             'resource_type': 'auto',
             'use_filename': True,
-            'unique_filename': True
+            'unique_filename': True,
+            'type': 'upload',  # Ensure it's uploaded as public
+            'access_mode': 'public'  # Make sure it's publicly accessible
         }
 
         # Add PDF-specific options for CVs
@@ -251,17 +253,35 @@ def upload_to_cloudinary(file, field_name, file_size):
 
         upload_result = cloudinary.uploader.upload(file, **upload_options)
 
+        # Generate a public URL that doesn't require authentication
+        public_url = upload_result['secure_url']
+        
+        # Log the upload for debugging
+        app.logger.info("File uploaded to Cloudinary", extra={
+            "field_name": field_name,
+            "filename": file.filename,
+            "public_id": upload_result['public_id'],
+            "url": public_url,
+            "bytes": upload_result.get('bytes', 0)
+        })
+
         return {
-            'url': upload_result['secure_url'],
+            'url': public_url,
             'public_id': upload_result['public_id'],
             'format': upload_result.get('format', ''),
             'bytes': upload_result.get('bytes', 0),
             'pages': upload_result.get('pages', 1) if 'pages' in upload_result else 1,
+            'filename': file.filename,
             'status': 'cloudinary_upload_success',
             'system_version': '2.0.2'
         }
 
     except Exception as e:
+        app.logger.error("Cloudinary upload failed", extra={
+            "field_name": field_name,
+            "filename": file.filename,
+            "error": str(e)
+        })
         # Fallback: save basic file info instead of failing
         return {
             'filename': file.filename,
@@ -767,7 +787,9 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     {% if app.get('files_parsed') %}
                         {% for file_type, file_info in app.get('files_parsed', {}).items() %}
                             {% if file_info.get('url') %}
-                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link" title="Ver {{ file_type }} - {{ file_info.get('filename', 'archivo') }}">
+                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link" 
+                                   title="Ver {{ file_type }} - {{ file_info.get('filename', 'archivo') }}"
+                                   onerror="this.href='/api/file/{{ file_info.get('public_id', file_info.get('url').split('/')[-1].split('.')[0] if file_info.get('url') else '') }}'">
                                     {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }}
                                 </a>
                             {% elif file_info.get('filename') %}
@@ -791,8 +813,21 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                             <div class="file-detail-item">
                                 <strong>{{ file_type.title() }}:</strong>
                                 {% if file_info.get('url') %}
-                                    <a href="{{ file_info.get('url') }}" target="_blank">{{ file_info.get('filename', 'Ver archivo') }}</a>
+                                    <a href="{{ file_info.get('url') }}" target="_blank" 
+                                       onclick="if(event.ctrlKey || event.metaKey) return true; 
+                                                var fallback='/api/file/{{ file_info.get('public_id', file_info.get('url').split('/')[-1].split('.')[0] if file_info.get('url') else '') }}';
+                                                var link=this; 
+                                                var img=new Image(); 
+                                                img.onload=function(){window.open(link.href, '_blank');}; 
+                                                img.onerror=function(){window.open(fallback, '_blank');}; 
+                                                img.src=link.href; 
+                                                return false;">
+                                        {{ file_info.get('filename', 'Ver archivo') }}
+                                    </a>
                                     <small>({{ (file_info.get('bytes', 0) / 1024) | round(1) }} KB)</small>
+                                    {% if file_info.get('public_id') %}
+                                        <br><small>ID: {{ file_info.get('public_id') }}</small>
+                                    {% endif %}
                                 {% else %}
                                     <span>{{ file_info.get('filename', 'N/A') }}</span>
                                     <small>({{ file_info.get('status', 'Error') }})</small>
@@ -871,8 +906,36 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             }
         }
 
+        // Handle file link errors with fallback
+        function handleFileError(link, publicId) {
+            if (publicId) {
+                link.href = '/api/file/' + publicId;
+                link.onclick = null; // Remove the original onclick
+                link.title = 'Usando enlace de respaldo - ' + link.title;
+                // Try to reload
+                window.open(link.href, '_blank');
+            } else {
+                alert('Error: No se puede cargar el archivo. Contacte al administrador.');
+            }
+        }
+
+        // Add error handling to all file links
         document.addEventListener('DOMContentLoaded', function() {
             filterApplications();
+            
+            // Add error handling to file links
+            const fileLinks = document.querySelectorAll('.file-link[href*="cloudinary.com"]');
+            fileLinks.forEach(link => {
+                link.addEventListener('error', function() {
+                    console.warn('File link error, trying fallback:', this.href);
+                    const publicId = this.getAttribute('data-public-id');
+                    if (publicId) {
+                        this.href = '/api/file/' + publicId;
+                        this.style.backgroundColor = '#fff3cd';
+                        this.title = 'Usando enlace de respaldo - ' + this.title;
+                    }
+                });
+            });
         });
     </script>
 </body>
@@ -1138,6 +1201,122 @@ def test_cloudinary():
             "message": "Unexpected error testing Cloudinary",
             "error": str(e)
         }), 500
+
+
+@app.route('/api/debug-files/<application_id>')
+@login_required
+def debug_files(application_id):
+    """Debug endpoint to check file URLs for a specific application."""
+    try:
+        from bson import ObjectId
+        
+        # Find the application
+        application = candidates.find_one({"_id": ObjectId(application_id)})
+        if not application:
+            return jsonify({"error": "Application not found"}), 404
+        
+        # Parse files
+        files_data = {}
+        if 'files' in application:
+            try:
+                files_data = json.loads(application['files'])
+            except (json.JSONDecodeError, TypeError):
+                files_data = {}
+        
+        # Test each file URL
+        debug_info = {
+            "application_id": application_id,
+            "applicant": f"{application.get('nombre', '')} {application.get('apellido', '')}",
+            "files_raw": application.get('files', ''),
+            "files_parsed": files_data,
+            "cloudinary_config": {
+                "cloud_name": os.getenv('CLOUDINARY_CLOUD_NAME'),
+                "api_key_present": bool(os.getenv('CLOUDINARY_API_KEY')),
+                "api_secret_present": bool(os.getenv('CLOUDINARY_API_SECRET'))
+            },
+            "url_tests": {}
+        }
+        
+        # Test each file URL
+        for file_type, file_info in files_data.items():
+            if isinstance(file_info, dict) and file_info.get('url'):
+                url = file_info['url']
+                debug_info["url_tests"][file_type] = {
+                    "url": url,
+                    "public_id": file_info.get('public_id', 'N/A'),
+                    "status": file_info.get('status', 'N/A'),
+                    "is_cloudinary": 'cloudinary.com' in url,
+                    "is_secure": url.startswith('https://'),
+                    "fallback_endpoint": f"/api/file/{file_info.get('public_id', 'unknown')}"
+                }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/file/<file_id>')
+@login_required
+def serve_file(file_id):
+    """Serve file with authentication as fallback for Cloudinary issues."""
+    try:
+        # Find the application that contains this file
+        application = candidates.find_one({
+            "$or": [
+                {"files": {"$regex": file_id}},
+                {"cv_url": {"$regex": file_id}},
+                {"foto_url": {"$regex": file_id}}
+            ]
+        })
+        
+        if not application:
+            app.logger.warning("File not found in database", extra={"file_id": file_id})
+            return "File not found", 404
+        
+        # Parse files to get the correct URL
+        files_data = {}
+        if 'files' in application:
+            try:
+                files_data = json.loads(application['files'])
+            except (json.JSONDecodeError, TypeError):
+                files_data = {}
+        
+        # Look for the file URL in the parsed data
+        file_url = None
+        for file_type, file_info in files_data.items():
+            if isinstance(file_info, dict) and file_id in file_info.get('url', ''):
+                file_url = file_info['url']
+                break
+        
+        # Fallback to direct URLs
+        if not file_url:
+            if file_id in application.get('cv_url', ''):
+                file_url = application['cv_url']
+            elif file_id in application.get('foto_url', ''):
+                file_url = application['foto_url']
+        
+        if not file_url:
+            app.logger.error("File URL not found", extra={
+                "file_id": file_id,
+                "application_id": str(application['_id'])
+            })
+            return "File URL not found", 404
+        
+        # Redirect to the actual Cloudinary URL
+        app.logger.info("Serving file via redirect", extra={
+            "file_id": file_id,
+            "file_url": file_url[:100] + "..." if len(file_url) > 100 else file_url
+        })
+        
+        return redirect(file_url)
+        
+    except Exception as e:
+        app.logger.error("Error serving file", extra={
+            "file_id": file_id,
+            "error": str(e)
+        })
+        return f"Error serving file: {str(e)}", 500
 
 
 @app.route('/api/system-status', methods=['GET'])
