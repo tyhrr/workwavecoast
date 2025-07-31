@@ -10,12 +10,14 @@ Version: 2.1.0 - PERFORMANCE & MONITORING UPGRADE
 """
 
 
+
 import os
 import json
 import re
 import logging
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
+
 from functools import wraps
 
 from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for, send_from_directory
@@ -1052,6 +1054,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
 
 # Route handlers
 
+## Eliminadas las funciones duplicadas de admin_login, admin_panel y admin_logout para evitar redeclaración.
 @app.route('/api/cloudinary-url/<path:full_public_id>')
 def get_cloudinary_public_url_flexible(full_public_id):
     """Generate a public Cloudinary URL without authentication - flexible version."""
