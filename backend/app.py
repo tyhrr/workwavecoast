@@ -16,7 +16,7 @@ import logging
 from datetime import datetime
 from functools import wraps
 
-from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for
+from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -78,7 +78,8 @@ ALLOWED_ORIGINS = [
     "https://workwavecoast.onrender.com",  # Your actual Render URL
     "http://localhost:3000",
     "http://127.0.0.1:5500",
-    "http://localhost:5000"
+    "http://localhost:5000",
+    "null"  # Para archivos abiertos directamente (file://)
 ]
 
 # Configure CORS
@@ -982,6 +983,40 @@ def home():
         "status": "running",
         "version": "2.1.0"
     })
+
+
+@app.route('/app')
+@app.route('/frontend')
+def serve_frontend():
+    """Serve the frontend application to avoid CORS issues."""
+    try:
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'index.html')
+        if os.path.exists(frontend_path):
+            with open(frontend_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            return f"""
+            <h2>Frontend no encontrado</h2>
+            <p>Busque el archivo en: {frontend_path}</p>
+            <p>Para probar la API directamente:</p>
+            <ul>
+                <li><a href="/api/health">Health Check</a></li>
+                <li><a href="/admin">Panel de Admin</a></li>
+                <li>POST a <code>/api/submit</code> para enviar aplicaciones</li>
+            </ul>
+            """
+    except Exception as e:
+        return f"Error sirviendo frontend: {str(e)}", 500
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve static files from frontend directory."""
+    try:
+        frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
+        return send_from_directory(frontend_dir, filename)
+    except Exception as e:
+        return f"Archivo no encontrado: {filename}", 404
 
 
 @app.route('/api/submit', methods=['OPTIONS'])
