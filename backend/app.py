@@ -237,22 +237,25 @@ def upload_to_cloudinary(file, field_name, file_size):
         }
 
     try:
-        # Configure upload options with public access
+
+        # Configure upload options for public access, never signed or authenticated
         upload_options = {
             'folder': 'workwave_coast',
             'use_filename': True,
             'unique_filename': True,
-            'type': 'upload',
-            'access_mode': 'public'
+            'type': 'upload',  # always public
+            'access_mode': 'public',
+            # No upload_preset, no type: authenticated
         }
 
-        # Set resource type based on file type
+        # Set resource type based on file type (PDFs as raw, others auto)
         if field_name == 'cv' and file.filename.lower().endswith('.pdf'):
-            upload_options['resource_type'] = 'raw'  # PDFs should be raw files
+            upload_options['resource_type'] = 'raw'
             upload_options['format'] = 'pdf'
         else:
             upload_options['resource_type'] = 'auto'
 
+        # Upload file
         upload_result = cloudinary.uploader.upload(file, **upload_options)
 
         # Determine resource type for URL generation
@@ -1503,37 +1506,30 @@ def get_cloudinary_public_url_flexible(full_public_id):
         if not cloud_name:
             return "Cloudinary not configured", 500
 
-        app.logger.info("Proxy request received", extra={
+        # Detect resource type by extension for correct URL
+        # If PDF, use /raw/upload/, else /image/upload/
+        if full_public_id.lower().endswith('.pdf'):
+            url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
+            resource_type = 'raw'
+        else:
+            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
+            resource_type = 'image'
+
+        app.logger.info("Proxy request generated", extra={
             "full_public_id": full_public_id,
-            "cloud_name": cloud_name
+            "cloud_name": cloud_name,
+            "resource_type": resource_type,
+            "url": url
         })
 
-        # For existing files, we know they're stored as 'image' type
-        # Construct the URL directly based on the working pattern
-        if full_public_id.endswith('.pdf') or 'cv_' in full_public_id:
-            # For PDFs, use image/upload path (where existing files are stored)
-            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
-
-            app.logger.info("Generated PDF URL via proxy", extra={
-                "full_public_id": full_public_id,
-                "url": url
-            })
-        else:
-            # For other files, also use image/upload
-            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
-
-            app.logger.info("Generated file URL via proxy", extra={
-                "full_public_id": full_public_id,
-                "url": url
-            })
-
-        # For debugging, return JSON instead of redirect temporarily
+        # For debugging, return JSON instead of redirect if requested
         debug_mode = request.args.get('debug') == 'true'
         if debug_mode:
             return jsonify({
                 "debug": True,
                 "full_public_id": full_public_id,
                 "cloud_name": cloud_name,
+                "resource_type": resource_type,
                 "generated_url": url,
                 "message": "This is the URL that would be redirected to"
             })
