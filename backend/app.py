@@ -9,12 +9,13 @@ Author: WorkWave Team
 Version: 2.1.0 - PERFORMANCE & MONITORING UPGRADE
 """
 
+
 import os
 import json
 import re
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for, send_from_directory
@@ -1160,7 +1161,7 @@ def serve_frontend():
         return "Error sirviendo frontend: " + str(e), 500
 
 
-@app.route('/static/<path:filename>')
+@app.route('/frontend/<path:filename>')
 def serve_static(filename):
     """Serve static files from frontend directory."""
     try:
@@ -1199,6 +1200,13 @@ def submit_application():
         # Get form data
         data = request.form.to_dict()
 
+        # TEMPORAL: Log para debugging
+        app.logger.info("Received form data", extra={
+            "data_keys": list(data.keys()),
+            "data_values": {k: v[:50] if isinstance(v, str) else v for k, v in data.items()},
+            "files_received": list(request.files.keys())
+        })
+
         # Validate input data
         is_valid, validation_errors = validate_application_data(data)
         if not is_valid:
@@ -1213,7 +1221,7 @@ def submit_application():
             }), 400
 
         # Add timestamp and status
-        data['created_at'] = datetime.utcnow().isoformat()
+        data['created_at'] = datetime.now(datetime.timezone.utc).isoformat()
         data['status'] = 'pending'
 
         # Sanitize data (strip whitespace)
