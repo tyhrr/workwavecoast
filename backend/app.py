@@ -265,7 +265,7 @@ def upload_to_cloudinary(file, field_name, file_size):
         # Log the upload for debugging
         app.logger.info("File uploaded to Cloudinary", extra={
             "field_name": field_name,
-            "filename": file.filename,
+            "file_name": file.filename,
             "public_id": public_id,
             "resource_type": resource_type,
             "direct_url": direct_url,
@@ -289,7 +289,7 @@ def upload_to_cloudinary(file, field_name, file_size):
     except Exception as e:
         app.logger.error("Cloudinary upload failed", extra={
             "field_name": field_name,
-            "filename": file.filename,
+            "file_name": file.filename,
             "error": str(e)
         })
         # Fallback: save basic file info instead of failing
@@ -1039,7 +1039,7 @@ def submit_application():
                 if not is_valid:
                     app.logger.warning("Invalid file upload", extra={
                         "field": field_name,
-                        "filename": file.filename,
+                        "file_name": file.filename,
                         "error": error_message
                     })
                     return jsonify({
