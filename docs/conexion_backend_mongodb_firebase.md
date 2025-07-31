@@ -69,15 +69,15 @@ try:
     MONGO_URI = os.getenv('MONGO_URI')
     if not MONGO_URI:
         raise ValueError("MONGO_URI no encontrada en variables de entorno")
-    
+
     client = MongoClient(MONGO_URI)
     db = client['workwave']
     applications = db['applications']
-    
+
     # Verificar conexión
     client.admin.command('ping')
     app.logger.info("✅ Conexión MongoDB Atlas exitosa")
-    
+
 except Exception as e:
     app.logger.error(f"❌ Error conectando a MongoDB: {e}")
     raise
@@ -123,7 +123,7 @@ def upload_to_cloudinary(file, field_name, file_size):
         # Validaciones de seguridad
         if not file or file.filename == '':
             return None, "No se seleccionó archivo"
-        
+
         # Configuración por tipo de archivo
         upload_options = {
             'folder': f'workwave-coast/{field_name}s',
@@ -132,7 +132,7 @@ def upload_to_cloudinary(file, field_name, file_size):
             'overwrite': False,
             'resource_type': 'auto'
         }
-        
+
         # Optimizaciones específicas
         if field_name == 'cv':
             upload_options.update({
@@ -148,10 +148,10 @@ def upload_to_cloudinary(file, field_name, file_size):
                 'height': 800,
                 'crop': 'limit'  # Mantener proporción
             })
-        
+
         # Subir archivo
         result = cloudinary.uploader.upload(file, **upload_options)
-        
+
         return {
             'url': result['secure_url'],
             'public_id': result['public_id'],
@@ -159,7 +159,7 @@ def upload_to_cloudinary(file, field_name, file_size):
             'size': result.get('bytes'),
             'created_at': result.get('created_at')
         }, None
-        
+
     except Exception as e:
         app.logger.error(f"Error subiendo a Cloudinary: {e}")
         return None, f"Error subiendo archivo: {str(e)}"
@@ -210,19 +210,19 @@ def validate_application_data(data):
     """Validación completa de datos con escape XSS."""
     import re
     from markupsafe import escape
-    
+
     errors = []
-    
+
     # Validaciones con regex y limites
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, data.get('email', '')):
         errors.append("Email inválido")
-    
+
     # Escape XSS automático
     for field in ['nombre', 'apellido', 'nacionalidad', 'experiencia']:
         if field in data:
             data[field] = escape(data[field].strip())
-    
+
     return data, errors
 ```
 
@@ -244,7 +244,7 @@ def setup_logging():
         handler.setFormatter(formatter)
         app.logger.addHandler(handler)
         app.logger.setLevel(logging.INFO)
-        
+
 # Ejemplo de log estructurado
 app.logger.info("Application submitted", extra={
     "email": "user@example.com",
@@ -263,17 +263,17 @@ def system_status():
         # Test MongoDB
         client.admin.command('ping')
         mongo_status = "connected"
-        
+
         # Test Cloudinary
         cloudinary.api.ping()
         cloudinary_status = "connected"
-        
+
         # Estadísticas de aplicaciones
         total_apps = applications.count_documents({})
         recent_apps = applications.count_documents({
             "created_at": {"$gte": datetime.now() - timedelta(days=7)}
         })
-        
+
         return jsonify({
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),

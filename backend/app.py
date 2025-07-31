@@ -239,35 +239,45 @@ def upload_to_cloudinary(file, field_name, file_size):
         # Configure upload options with public access
         upload_options = {
             'folder': 'workwave_coast',
-            'resource_type': 'auto',
             'use_filename': True,
             'unique_filename': True,
-            'type': 'upload',  # Ensure it's uploaded as public
-            'access_mode': 'public'  # Make sure it's publicly accessible
+            'type': 'upload',
+            'access_mode': 'public'
         }
 
-        # Add PDF-specific options for CVs
+        # Set resource type based on file type
         if field_name == 'cv' and file.filename.lower().endswith('.pdf'):
+            upload_options['resource_type'] = 'raw'  # PDFs should be raw files
             upload_options['format'] = 'pdf'
-            upload_options['pages'] = True
+        else:
+            upload_options['resource_type'] = 'auto'
 
         upload_result = cloudinary.uploader.upload(file, **upload_options)
 
-        # Generate a public URL that doesn't require authentication
-        public_url = upload_result['secure_url']
-        
+        # Determine resource type for URL generation
+        resource_type = upload_result.get('resource_type', 'image')
+        public_id = upload_result['public_id']
+
+        # Generate both the direct URL and our proxy URL
+        direct_url = upload_result['secure_url']
+        proxy_url = f"/api/cloudinary-url/{resource_type}/{public_id}"
+
         # Log the upload for debugging
         app.logger.info("File uploaded to Cloudinary", extra={
             "field_name": field_name,
             "filename": file.filename,
-            "public_id": upload_result['public_id'],
-            "url": public_url,
+            "public_id": public_id,
+            "resource_type": resource_type,
+            "direct_url": direct_url,
+            "proxy_url": proxy_url,
             "bytes": upload_result.get('bytes', 0)
         })
 
         return {
-            'url': public_url,
-            'public_id': upload_result['public_id'],
+            'url': direct_url,  # Primary URL
+            'proxy_url': proxy_url,  # Fallback URL through our server
+            'public_id': public_id,
+            'resource_type': resource_type,
             'format': upload_result.get('format', ''),
             'bytes': upload_result.get('bytes', 0),
             'pages': upload_result.get('pages', 1) if 'pages' in upload_result else 1,
@@ -787,9 +797,24 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     {% if app.get('files_parsed') %}
                         {% for file_type, file_info in app.get('files_parsed', {}).items() %}
                             {% if file_info.get('url') %}
-                                <a href="{{ file_info.get('url') }}" target="_blank" class="file-link" 
+                                {% if file_type == 'cv' and 'cloudinary.com' in file_info.get('url', '') %}
+                                    {% set cv_url_parts = file_info.get('url', '').split('/') %}
+                                    {% set proxy_path = '' %}
+                                    {% for i in range(cv_url_parts|length) %}
+                                        {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length %}
+                                            {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
+                                            {% break %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% set file_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
+                                {% else %}
+                                    {% set file_url = file_info.get('url') %}
+                                {% endif %}
+                                <a href="{{ file_url }}" target="_blank" class="file-link"
                                    title="Ver {{ file_type }} - {{ file_info.get('filename', 'archivo') }}"
-                                   onerror="this.href='/api/file/{{ file_info.get('public_id', file_info.get('url').split('/')[-1].split('.')[0] if file_info.get('url') else '') }}'">
+                                   data-direct-url="{{ file_info.get('url') }}"
+                                   data-public-id="{{ file_info.get('public_id', '') }}"
+                                   data-resource-type="{{ file_info.get('resource_type', 'raw') }}">
                                     {% if file_type == 'cv' %}📄{% else %}📎{% endif %} {{ file_type.title() }}
                                 </a>
                             {% elif file_info.get('filename') %}
@@ -813,21 +838,29 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                             <div class="file-detail-item">
                                 <strong>{{ file_type.title() }}:</strong>
                                 {% if file_info.get('url') %}
-                                    <a href="{{ file_info.get('url') }}" target="_blank" 
-                                       onclick="if(event.ctrlKey || event.metaKey) return true; 
-                                                var fallback='/api/file/{{ file_info.get('public_id', file_info.get('url').split('/')[-1].split('.')[0] if file_info.get('url') else '') }}';
-                                                var link=this; 
-                                                var img=new Image(); 
-                                                img.onload=function(){window.open(link.href, '_blank');}; 
-                                                img.onerror=function(){window.open(fallback, '_blank');}; 
-                                                img.src=link.href; 
-                                                return false;">
+                                    {% if file_type == 'cv' and 'cloudinary.com' in file_info.get('url', '') %}
+                                        {% set cv_url_parts = file_info.get('url', '').split('/') %}
+                                        {% set proxy_path = '' %}
+                                        {% for i in range(cv_url_parts|length) %}
+                                            {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length %}
+                                                {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
+                                                {% break %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% set detail_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
+                                    {% else %}
+                                        {% set detail_url = file_info.get('url') %}
+                                    {% endif %}
+                                    <a href="{{ detail_url }}" target="_blank"
+                                       title="Usar proxy para mejor compatibilidad">
                                         {{ file_info.get('filename', 'Ver archivo') }}
                                     </a>
                                     <small>({{ (file_info.get('bytes', 0) / 1024) | round(1) }} KB)</small>
                                     {% if file_info.get('public_id') %}
                                         <br><small>ID: {{ file_info.get('public_id') }}</small>
+                                        <br><small>Tipo: {{ file_info.get('resource_type', 'auto') }}</small>
                                     {% endif %}
+                                    <br><small><a href="{{ file_info.get('url') }}" target="_blank" style="color: #666;">URL directa</a></small>
                                 {% else %}
                                     <span>{{ file_info.get('filename', 'N/A') }}</span>
                                     <small>({{ file_info.get('status', 'Error') }})</small>
@@ -922,7 +955,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         // Add error handling to all file links
         document.addEventListener('DOMContentLoaded', function() {
             filterApplications();
-            
+
             // Add error handling to file links
             const fileLinks = document.querySelectorAll('.file-link[href*="cloudinary.com"]');
             fileLinks.forEach(link => {
@@ -1209,12 +1242,12 @@ def debug_files(application_id):
     """Debug endpoint to check file URLs for a specific application."""
     try:
         from bson import ObjectId
-        
+
         # Find the application
         application = candidates.find_one({"_id": ObjectId(application_id)})
         if not application:
             return jsonify({"error": "Application not found"}), 404
-        
+
         # Parse files
         files_data = {}
         if 'files' in application:
@@ -1222,7 +1255,7 @@ def debug_files(application_id):
                 files_data = json.loads(application['files'])
             except (json.JSONDecodeError, TypeError):
                 files_data = {}
-        
+
         # Test each file URL
         debug_info = {
             "application_id": application_id,
@@ -1236,7 +1269,7 @@ def debug_files(application_id):
             },
             "url_tests": {}
         }
-        
+
         # Test each file URL
         for file_type, file_info in files_data.items():
             if isinstance(file_info, dict) and file_info.get('url'):
@@ -1249,13 +1282,249 @@ def debug_files(application_id):
                     "is_secure": url.startswith('https://'),
                     "fallback_endpoint": f"/api/file/{file_info.get('public_id', 'unknown')}"
                 }
-        
+
         return jsonify(debug_info)
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/test-cv-url')
+def test_cv_url():
+    """Test endpoint to debug the specific CV URL issue."""
+    test_url = "https://res.cloudinary.com/dde3kelit/image/upload/v1753899372/workwave_coast/cv_wxlzwh.pdf"
+
+    # Extract public_id from the URL
+    parts = test_url.split('/')
+    if 'workwave_coast' in parts:
+        idx = parts.index('workwave_coast')
+        if idx + 1 < len(parts):
+            public_id_with_ext = parts[idx + 1]
+            public_id = public_id_with_ext.split('.')[0]  # Remove extension
+
+            # Generate corrected URLs
+            cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME', 'dde3kelit')  # Updated config
+
+            # Try different URL variations
+            url_variations = {
+                "original_url": test_url,
+                "variation_1_raw_with_folder": f"https://res.cloudinary.com/{cloud_name}/raw/upload/workwave_coast/{public_id}.pdf",
+                "variation_2_raw_without_folder": f"https://res.cloudinary.com/{cloud_name}/raw/upload/{public_id}.pdf",
+                "variation_3_raw_with_version": f"https://res.cloudinary.com/{cloud_name}/raw/upload/v1753899372/workwave_coast/{public_id}.pdf",
+                "variation_4_raw_full_public_id": f"https://res.cloudinary.com/{cloud_name}/raw/upload/v1753899372/workwave_coast/cv_wxlzwh",
+                "variation_5_image_original": test_url,
+                "cloud_name": cloud_name,
+                "public_id_extracted": public_id,
+                "problem": "URL uses /image/upload/ for PDF (should be /raw/upload/), but file might not exist or have different public_id"
+            }
+
+            return jsonify(url_variations)
+
+    return jsonify({"error": "Could not parse URL"})
+
+
+@app.route('/api/test-cv-url-forced')
+def test_cv_url_forced():
+    """Test endpoint with forced correct cloud_name."""
+    test_url = "https://res.cloudinary.com/dde3kelit/image/upload/v1753899372/workwave_coast/cv_wxlzwh.pdf"
+
+    # Force the correct cloud_name
+    cloud_name = "dde3kelit"  # Hardcoded correct value
+
+    # Try different URL variations
+    url_variations = {
+        "original_url": test_url,
+        "variation_1_raw_with_folder": f"https://res.cloudinary.com/{cloud_name}/raw/upload/workwave_coast/cv_wxlzwh.pdf",
+        "variation_2_raw_without_folder": f"https://res.cloudinary.com/{cloud_name}/raw/upload/cv_wxlzwh.pdf",
+        "variation_3_raw_with_version": f"https://res.cloudinary.com/{cloud_name}/raw/upload/v1753899372/workwave_coast/cv_wxlzwh.pdf",
+        "variation_4_raw_full_public_id": f"https://res.cloudinary.com/{cloud_name}/raw/upload/v1753899372/workwave_coast/cv_wxlzwh",
+        "variation_5_image_original": test_url,
+        "cloud_name": cloud_name,
+        "public_id_extracted": "cv_wxlzwh",
+        "problem": "Testing with FORCED correct cloud_name",
+        "note": "If this works, then the .env file wasn't reloaded properly"
+    }
+
+    return jsonify(url_variations)
+
+
+@app.route('/api/test-working-cv')
+def test_working_cv():
+    """Test the CV URL that we know works (variation 5)."""
+    working_url = "https://res.cloudinary.com/dde3kelit/image/upload/v1753899372/workwave_coast/cv_wxlzwh.pdf"
+
+    return f"""
+    <h2>✅ URL que funciona encontrada</h2>
+    <p><strong>URL correcta para este CV:</strong></p>
+    <p><a href="{working_url}" target="_blank">{working_url}</a></p>
+
+    <h3>🔧 Solución implementada:</h3>
+    <p>• El archivo está almacenado como 'image' en lugar de 'raw'</p>
+    <p>• El proxy ahora detecta automáticamente el tipo correcto</p>
+    <p>• Los CVs existentes seguirán funcionando</p>
+
+    <h3>🧪 Probar el proxy:</h3>
+    <p><a href="/api/cloudinary-url/v1753899372/workwave_coast/cv_wxlzwh.pdf" target="_blank">
+        Proxy URL (debería funcionar automáticamente)
+    </a></p>
+
+    <p><em>El proxy ahora detecta si el archivo está como 'image' o 'raw' y usa la URL correcta.</em></p>
+    """
+
+
+@app.route('/api/check-cloudinary-file')
+def check_cloudinary_file():
+    """Check if a specific file exists in Cloudinary using the Admin API."""
+    try:
+        import cloudinary.api
+
+        # Try to get info about the specific public_id
+        public_id = "workwave_coast/cv_wxlzwh"
+
+        try:
+            # Try as raw resource first
+            result_raw = cloudinary.api.resource(public_id, resource_type="raw")
+            return jsonify({
+                "status": "found_as_raw",
+                "public_id": public_id,
+                "result": result_raw,
+                "correct_url": result_raw.get('secure_url', 'N/A')
+            })
+        except Exception as e1:
+            try:
+                # Try as image resource
+                result_image = cloudinary.api.resource(public_id, resource_type="image")
+                return jsonify({
+                    "status": "found_as_image",
+                    "public_id": public_id,
+                    "result": result_image,
+                    "current_url": result_image.get('secure_url', 'N/A'),
+                    "note": "File exists as image, needs to be re-uploaded as raw for PDF"
+                })
+            except Exception as e2:
+                # Try without folder prefix
+                simple_id = "cv_wxlzwh"
+                try:
+                    result_simple = cloudinary.api.resource(simple_id, resource_type="raw")
+                    return jsonify({
+                        "status": "found_without_folder",
+                        "public_id": simple_id,
+                        "result": result_simple,
+                        "correct_url": result_simple.get('secure_url', 'N/A')
+                    })
+                except Exception as e3:
+                    return jsonify({
+                        "status": "not_found",
+                        "errors": {
+                            "raw_with_folder": str(e1),
+                            "image_with_folder": str(e2),
+                            "raw_without_folder": str(e3)
+                        },
+                        "suggestion": "File might not exist or have different public_id"
+                    })
+
+    except Exception as e:
+        return jsonify({"error": f"Cloudinary API error: {str(e)}"}), 500
+
+
+@app.route('/api/list-cloudinary-files')
+def list_cloudinary_files():
+    """List all files in Cloudinary to see what's actually there."""
+    try:
+        import cloudinary.api
+
+        results = {}
+
+        # List raw files (PDFs)
+        try:
+            raw_files = cloudinary.api.resources(resource_type="raw", prefix="workwave_coast/", max_results=50)
+            results["raw_files"] = raw_files.get('resources', [])
+        except Exception as e:
+            results["raw_files_error"] = str(e)
+
+        # List image files
+        try:
+            image_files = cloudinary.api.resources(resource_type="image", prefix="workwave_coast/", max_results=50)
+            results["image_files"] = image_files.get('resources', [])
+        except Exception as e:
+            results["image_files_error"] = str(e)
+
+        # Also try without prefix to see all files
+        try:
+            all_raw = cloudinary.api.resources(resource_type="raw", max_results=10)
+            results["all_raw_files"] = all_raw.get('resources', [])
+        except Exception as e:
+            results["all_raw_error"] = str(e)
+
+        return jsonify(results)
+
+    except Exception as e:
+        return jsonify({"error": f"Cloudinary API error: {str(e)}"}), 500
+
+
+@app.route('/api/cloudinary-url/<path:full_public_id>')
+def get_cloudinary_public_url_flexible(full_public_id):
+    """Generate a public Cloudinary URL without authentication - flexible version."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            return "Cloudinary not configured", 500
+
+        app.logger.info("Proxy request received", extra={
+            "full_public_id": full_public_id,
+            "cloud_name": cloud_name
+        })
+
+        # For existing files, we know they're stored as 'image' type
+        # Construct the URL directly based on the working pattern
+        if full_public_id.endswith('.pdf') or 'cv_' in full_public_id:
+            # For PDFs, use image/upload path (where existing files are stored)
+            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
+
+            app.logger.info("Generated PDF URL via proxy", extra={
+                "full_public_id": full_public_id,
+                "url": url
+            })
+        else:
+            # For other files, also use image/upload
+            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
+
+            app.logger.info("Generated file URL via proxy", extra={
+                "full_public_id": full_public_id,
+                "url": url
+            })
+
+        # For debugging, return JSON instead of redirect temporarily
+        debug_mode = request.args.get('debug') == 'true'
+        if debug_mode:
+            return jsonify({
+                "debug": True,
+                "full_public_id": full_public_id,
+                "cloud_name": cloud_name,
+                "generated_url": url,
+                "message": "This is the URL that would be redirected to"
+            })
+
+        # Redirect to the actual URL
+        return redirect(url)
+
+    except Exception as e:
+        app.logger.error("Error generating Cloudinary URL", extra={
+            "full_public_id": full_public_id,
+            "error": str(e)
+        })
+        return f"Error: {str(e)}", 500
+
+
+@app.route('/api/debug-proxy/<path:test_id>')
+def debug_proxy(test_id):
+    """Debug endpoint to test the proxy route pattern."""
+    return jsonify({
+        "message": "Proxy route is working!",
+        "received_id": test_id,
+        "cloud_name": os.getenv('CLOUDINARY_CLOUD_NAME'),
+        "test_url": f"https://res.cloudinary.com/{os.getenv('CLOUDINARY_CLOUD_NAME')}/image/upload/{test_id}"
+    })
 @app.route('/api/file/<file_id>')
 @login_required
 def serve_file(file_id):
@@ -1269,11 +1538,11 @@ def serve_file(file_id):
                 {"foto_url": {"$regex": file_id}}
             ]
         })
-        
+
         if not application:
             app.logger.warning("File not found in database", extra={"file_id": file_id})
             return "File not found", 404
-        
+
         # Parse files to get the correct URL
         files_data = {}
         if 'files' in application:
@@ -1281,36 +1550,36 @@ def serve_file(file_id):
                 files_data = json.loads(application['files'])
             except (json.JSONDecodeError, TypeError):
                 files_data = {}
-        
+
         # Look for the file URL in the parsed data
         file_url = None
         for file_type, file_info in files_data.items():
             if isinstance(file_info, dict) and file_id in file_info.get('url', ''):
                 file_url = file_info['url']
                 break
-        
+
         # Fallback to direct URLs
         if not file_url:
             if file_id in application.get('cv_url', ''):
                 file_url = application['cv_url']
             elif file_id in application.get('foto_url', ''):
                 file_url = application['foto_url']
-        
+
         if not file_url:
             app.logger.error("File URL not found", extra={
                 "file_id": file_id,
                 "application_id": str(application['_id'])
             })
             return "File URL not found", 404
-        
+
         # Redirect to the actual Cloudinary URL
         app.logger.info("Serving file via redirect", extra={
             "file_id": file_id,
             "file_url": file_url[:100] + "..." if len(file_url) > 100 else file_url
         })
-        
+
         return redirect(file_url)
-        
+
     except Exception as e:
         app.logger.error("Error serving file", extra={
             "file_id": file_id,

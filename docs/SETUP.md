@@ -108,7 +108,7 @@ db.applications.createIndex({ "$**": "text" })        // Búsqueda de texto comp
 {
   "_id": "ObjectId",
   "nombre": "Juan",
-  "apellido": "Pérez", 
+  "apellido": "Pérez",
   "email": "juan@email.com",
   "telefono": "+385123456789",
   "nacionalidad": "Española",
@@ -150,7 +150,7 @@ start_backend.bat
 ```powershell
 # Desde la raíz del proyecto
 .venv\Scripts\Activate.ps1    # Activar entorno virtual
-cd backend                    # Ir a carpeta backend  
+cd backend                    # Ir a carpeta backend
 python app.py                 # Ejecutar aplicación
 ```
 
