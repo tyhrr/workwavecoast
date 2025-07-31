@@ -801,9 +801,8 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                                     {% set cv_url_parts = file_info.get('url', '').split('/') %}
                                     {% set proxy_path = '' %}
                                     {% for i in range(cv_url_parts|length) %}
-                                        {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length %}
+                                        {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length and not proxy_path %}
                                             {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
-                                            {% break %}
                                         {% endif %}
                                     {% endfor %}
                                     {% set file_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
@@ -842,9 +841,8 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                                         {% set cv_url_parts = file_info.get('url', '').split('/') %}
                                         {% set proxy_path = '' %}
                                         {% for i in range(cv_url_parts|length) %}
-                                            {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length %}
+                                            {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length and not proxy_path %}
                                                 {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
-                                                {% break %}
                                             {% endif %}
                                         {% endfor %}
                                         {% set detail_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
