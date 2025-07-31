@@ -1,4 +1,4 @@
-/* Paleta extraída del logo: 
+/* Paleta extraída del logo:
 - Azul oscuro: #00587A
 - Azul medio: #0088B9
 - Azul claro: #00B4D8
@@ -213,51 +213,51 @@ footer {
     .hero {
         padding: 2rem 1rem;
     }
-    
+
     .logo {
         width: 140px;
         height: 140px;
         padding: 14px;
         border: 5px solid #00B4D8;
     }
-    
+
     .hero h1 {
         font-size: 2rem;
         letter-spacing: 0.8px;
     }
-    
+
     .hero-text {
         font-size: 1.1rem;
         max-width: 500px;
     }
-    
+
     .form-section {
         padding: 2rem;
         border-radius: 24px;
         max-width: 450px;
     }
-    
+
     .form-section h2 {
         font-size: 1.3rem;
     }
-    
+
     .form-group label {
         font-size: 1rem;
     }
-    
+
     input[type="file"] {
         font-size: 1rem;
     }
-    
+
     .submit-btn {
         font-size: 1.1rem;
         padding: 0.8rem 2rem;
     }
-    
+
     .message {
         font-size: 1rem;
     }
-    
+
     footer {
         font-size: 1rem;
     }
@@ -269,43 +269,43 @@ footer {
         padding: 3rem 2rem;
         min-height: 60vh;
     }
-    
+
     .logo {
         width: 180px;
         height: 180px;
         padding: 16px;
         border: 6px solid #00B4D8;
     }
-    
+
     .hero h1 {
         font-size: 2.4rem;
         letter-spacing: 1px;
     }
-    
+
     .hero-text {
         font-size: 1.2rem;
         max-width: 600px;
     }
-    
+
     main {
         padding: 0 2rem;
     }
-    
+
     .form-section {
         padding: 2.5rem;
         border-radius: 28px;
         max-width: 500px;
         margin: 3rem 0;
     }
-    
+
     .form-section h2 {
         font-size: 1.4rem;
     }
-    
+
     .form-group {
         margin-bottom: 1.2rem;
     }
-    
+
     input[type="text"],
     input[type="email"],
     input[type="tel"],
@@ -313,7 +313,7 @@ footer {
         padding: 0.7rem 1rem;
         font-size: 1.1rem;
     }
-    
+
     .submit-btn {
         font-size: 1.1rem;
         padding: 0.9rem 2.5rem;
@@ -327,43 +327,43 @@ footer {
         padding: 4rem 2rem;
         min-height: 65vh;
     }
-    
+
     .logo {
         width: 220px;
         height: 220px;
         padding: 18px;
     }
-    
+
     .hero h1 {
         font-size: 2.6rem;
         margin: 1rem 0;
     }
-    
+
     .hero-text {
         font-size: 1.25rem;
         max-width: 700px;
     }
-    
+
     .form-section {
         padding: 3rem;
         border-radius: 32px;
         max-width: 550px;
         margin: 4rem 0;
     }
-    
+
     .form-section h2 {
         font-size: 1.5rem;
         margin-bottom: 1.5rem;
     }
-    
+
     .form-group {
         margin-bottom: 1.3rem;
     }
-    
+
     .form-group label {
         font-size: 1.1rem;
     }
-    
+
     input[type="text"],
     input[type="email"],
     input[type="tel"],
@@ -371,13 +371,13 @@ footer {
         padding: 0.8rem 1.2rem;
         font-size: 1.1rem;
     }
-    
+
     .submit-btn {
         font-size: 1.2rem;
         padding: 1rem 3rem;
         margin-top: 2rem;
     }
-    
+
     footer {
         padding: 2rem 1rem;
         font-size: 1.1rem;
@@ -390,36 +390,36 @@ footer {
         padding: 5rem 2rem;
         min-height: 70vh;
     }
-    
+
     .logo {
         width: 240px;
         height: 240px;
         padding: 20px;
     }
-    
+
     .hero h1 {
         font-size: 2.8rem;
         margin: 1.2rem 0;
     }
-    
+
     .hero-text {
         font-size: 1.3rem;
         max-width: 800px;
     }
-    
+
     .form-section {
         max-width: 600px;
         padding: 3.5rem;
     }
-    
+
     .form-section h2 {
         font-size: 1.6rem;
     }
-    
+
     .form-group {
         margin-bottom: 1.4rem;
     }
-    
+
     input[type="text"],
     input[type="email"],
     input[type="tel"],
@@ -427,7 +427,7 @@ footer {
         padding: 0.9rem 1.3rem;
         font-size: 1.15rem;
     }
-    
+
     .submit-btn {
         font-size: 1.25rem;
         padding: 1.1rem 3.5rem;
@@ -439,16 +439,16 @@ footer {
     .hero {
         min-height: 75vh;
     }
-    
+
     .hero h1 {
         font-size: 3rem;
     }
-    
+
     .hero-text {
         font-size: 1.4rem;
         max-width: 900px;
     }
-    
+
     .form-section {
         max-width: 650px;
         padding: 4rem;
@@ -464,7 +464,7 @@ footer {
     select {
         min-height: 44px; /* Minimum touch target size */
     }
-    
+
     .submit-btn {
         min-height: 48px;
         padding: 1rem 2rem;
@@ -484,11 +484,11 @@ footer {
     .submit-btn {
         transition: none;
     }
-    
+
     .submit-btn:hover {
         transform: none;
     }
-    
+
     input[type="text"]:focus,
     input[type="email"]:focus,
     input[type="tel"]:focus,

@@ -13,6 +13,7 @@ import os
 import json
 import re
 import logging
+import requests
 from datetime import datetime
 from functools import wraps
 
@@ -21,11 +22,13 @@ from flask_cors import CORS, cross_origin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from pymongo import MongoClient
+import pymongo.errors
 from dotenv import load_dotenv
 from pythonjsonlogger.json import JsonFormatter
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import cloudinary.exceptions
 
 # Load environment variables
 load_dotenv()
@@ -119,17 +122,28 @@ def create_indexes():
 
         app.logger.info("MongoDB indexes created successfully")
 
+    except (pymongo.errors.OperationFailure, pymongo.errors.DuplicateKeyError) as e:
+        app.logger.warning("MongoDB index creation failed: %s", str(e))
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("MongoDB connection error during index creation: %s", str(e))
     except Exception as e:
-        app.logger.warning(f"Error creating indexes: {e}")
+        app.logger.error("Unexpected error creating indexes: %s", str(e))
 
 # Initialize indexes
 create_indexes()
 
-# Cloudinary configuration
+# Cloudinary configuration - Force environment variables for security
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')
+
+if not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
+    raise ValueError("All Cloudinary environment variables (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are required")
+
 cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET
 )
 
 # File configuration constants
@@ -203,7 +217,7 @@ def validate_file(file, field_name):
         file_extension = os.path.splitext(file.filename)[1].lower()
         if file_extension not in ALLOWED_EXTENSIONS[field_name]:
             allowed = ', '.join(ALLOWED_EXTENSIONS[field_name])
-            return False, f"Tipo de archivo no permitido para {field_name}. Permitidos: {allowed}", 0
+            return False, "Tipo de archivo no permitido para " + field_name + ". Permitidos: " + allowed, 0
 
     # Validate file size
     try:
@@ -211,11 +225,11 @@ def validate_file(file, field_name):
         file_size = file.tell()
         file.seek(0)  # Reset to beginning
     except IOError:
-        return False, f"Error al procesar el archivo {field_name}", 0
+        return False, "Error al procesar el archivo " + field_name, 0
 
     if field_name in FILE_SIZE_LIMITS and file_size > FILE_SIZE_LIMITS[field_name]:
         max_size_mb = FILE_SIZE_LIMITS[field_name] / (1024 * 1024)
-        return False, f"El archivo {field_name} es demasiado grande. Máximo: {max_size_mb}MB", file_size
+        return False, "El archivo " + field_name + " es demasiado grande. Máximo: " + str(max_size_mb) + "MB", file_size
 
     return True, None, file_size
 
@@ -290,8 +304,66 @@ def upload_to_cloudinary(file, field_name, file_size):
             'system_version': '2.0.2'
         }
 
+    except (ConnectionError, requests.RequestException) as e:
+        app.logger.error("Network error during Cloudinary upload", extra={
+            "field_name": field_name,
+            "file_name": file.filename,
+            "error": str(e)
+        })
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'cloudinary_network_error',
+            'error': str(e),
+            'note': 'Network error during cloud upload',
+            'system_version': '2.0.2'
+        }
+    except ValueError as e:
+        app.logger.error("Invalid file data for Cloudinary", extra={
+            "field_name": field_name,
+            "file_name": file.filename,
+            "error": str(e)
+        })
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'cloudinary_invalid_file',
+            'error': str(e),
+            'note': 'Invalid file format or data',
+            'system_version': '2.0.2'
+        }
+    except cloudinary.exceptions.Error as e:
+        app.logger.error("Cloudinary API error during upload", extra={
+            "field_name": field_name,
+            "file_name": file.filename,
+            "error": str(e),
+            "error_type": "cloudinary_api"
+        })
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'cloudinary_api_error',
+            'error': str(e),
+            'note': 'Cloudinary service error',
+            'system_version': '2.0.2'
+        }
+    except (OSError, IOError) as e:
+        app.logger.error("File system error during upload", extra={
+            "field_name": field_name,
+            "file_name": file.filename,
+            "error": str(e),
+            "error_type": "filesystem"
+        })
+        return {
+            'filename': file.filename,
+            'size_bytes': file_size,
+            'status': 'filesystem_error',
+            'error': str(e),
+            'note': 'File system access error',
+            'system_version': '2.0.2'
+        }
     except Exception as e:
-        app.logger.error("Cloudinary upload failed", extra={
+        app.logger.error("Unexpected error during Cloudinary upload", extra={
             "field_name": field_name,
             "file_name": file.filename,
             "error": str(e)
@@ -978,6 +1050,75 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
 
 
 # Route handlers
+
+@app.route('/api/cloudinary-url/<path:full_public_id>')
+def get_cloudinary_public_url_flexible(full_public_id):
+    """Generate a public Cloudinary URL without authentication - flexible version."""
+    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+    if not cloud_name:
+        return "Cloudinary not configured", 500
+
+    # Detect resource type by extension for correct URL
+    # If PDF, use /raw/upload/, else /image/upload/
+    if full_public_id.lower().endswith('.pdf'):
+        url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
+        resource_type = 'raw'
+    else:
+        url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
+        resource_type = 'image'
+
+    debug_mode = request.args.get('debug') == 'true'
+    if debug_mode:
+        return jsonify({
+            "debug": True,
+            "full_public_id": full_public_id,
+            "cloud_name": cloud_name,
+            "resource_type": resource_type,
+            "generated_url": url,
+            "message": "This is the URL that would be redirected to"
+        })
+
+    return redirect(url)
+
+
+@app.route('/api/cloudinary-url-robust/<path:full_public_id>')
+def get_cloudinary_public_url_robust(full_public_id):
+    """Robust alternative: Try both image and raw resource types for Cloudinary URLs."""
+    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+    if not cloud_name:
+        return "Cloudinary not configured", 500
+
+    url_image = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
+    url_raw = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
+
+    debug_mode = request.args.get('debug') == 'true'
+    if debug_mode:
+        return jsonify({
+            "debug": True,
+            "full_public_id": full_public_id,
+            "cloud_name": cloud_name,
+            "url_image": url_image,
+            "url_raw": url_raw,
+            "message": "Both image and raw URLs generated. The endpoint will try image first, then raw as fallback."
+        })
+
+    # Try to fetch the image URL first (HEAD request)
+    try:
+        resp = requests.head(url_image, timeout=4)
+        if resp.status_code == 200:
+            return redirect(url_image)
+    except requests.RequestException:
+        pass
+
+    # If image fails, try raw
+    try:
+        resp = requests.head(url_raw, timeout=4)
+        if resp.status_code == 200:
+            return redirect(url_raw)
+    except requests.RequestException:
+        pass
+
+    return "File not found in Cloudinary as image or raw: " + full_public_id, 404
 @app.route('/', methods=['GET'])
 def home():
     """Home endpoint that returns basic API information."""
@@ -1008,8 +1149,15 @@ def serve_frontend():
                 <li>POST a <code>/api/submit</code> para enviar aplicaciones</li>
             </ul>
             """
+    except FileNotFoundError:
+        app.logger.warning("Frontend file not found")
+        return "Error sirviendo frontend: archivo no encontrado", 404
+    except IOError as e:
+        app.logger.error("IO error serving frontend: %s", str(e))
+        return "Error sirviendo frontend: " + str(e), 500
     except Exception as e:
-        return f"Error sirviendo frontend: {str(e)}", 500
+        app.logger.error("Unexpected error serving frontend: %s", str(e))
+        return "Error sirviendo frontend: " + str(e), 500
 
 
 @app.route('/static/<path:filename>')
@@ -1018,8 +1166,15 @@ def serve_static(filename):
     try:
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
         return send_from_directory(frontend_dir, filename)
+    except FileNotFoundError:
+        app.logger.warning("Static file not found: %s", filename)
+        return "Archivo no encontrado: " + filename, 404
+    except IOError as e:
+        app.logger.error("IO error serving static file: %s", str(e))
+        return "Error de acceso al archivo: " + filename, 403
     except Exception as e:
-        return f"Archivo no encontrado: {filename}", 404
+        app.logger.error("Unexpected error serving static file: %s", str(e))
+        return "Error interno del servidor", 500
 
 
 @app.route('/api/submit', methods=['OPTIONS'])
@@ -1107,15 +1262,35 @@ def submit_application():
             "application_id": str(result.inserted_id)
         }), 201
 
-    except Exception as e:
-        app.logger.error("Error submitting application", extra={
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("Database error submitting application", extra={
             "error": str(e),
             "remote_addr": get_remote_address()
         })
         return jsonify({
             "success": False,
-            "message": "Error submitting application",
-            "error": str(e)
+            "message": "Error de base de datos. Inténtalo más tarde.",
+            "error": "database_error"
+        }), 503
+    except ValueError as e:
+        app.logger.warning("Invalid data in application submission", extra={
+            "error": str(e),
+            "remote_addr": get_remote_address()
+        })
+        return jsonify({
+            "success": False,
+            "message": "Datos inválidos proporcionados",
+            "error": "invalid_data"
+        }), 400
+    except Exception as e:
+        app.logger.error("Unexpected error submitting application", extra={
+            "error": str(e),
+            "remote_addr": get_remote_address()
+        })
+        return jsonify({
+            "success": False,
+            "message": "Error interno del servidor",
+            "error": "internal_error"
         }), 500
 
 
@@ -1172,12 +1347,26 @@ def get_applications():
             }
         })
 
-    except Exception as e:
-        app.logger.error("Error fetching applications", extra={"error": str(e)})
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("Database error fetching applications", extra={"error": str(e)})
         return jsonify({
             "success": False,
-            "message": "Error fetching applications",
-            "error": str(e)
+            "message": "Error de base de datos",
+            "error": "database_error"
+        }), 503
+    except ValueError as e:
+        app.logger.warning("Invalid parameters for applications query", extra={"error": str(e)})
+        return jsonify({
+            "success": False,
+            "message": "Parámetros inválidos",
+            "error": "invalid_parameters"
+        }), 400
+    except Exception as e:
+        app.logger.error("Unexpected error fetching applications", extra={"error": str(e)})
+        return jsonify({
+            "success": False,
+            "message": "Error interno del servidor",
+            "error": "internal_error"
         }), 500
 
 
@@ -1204,7 +1393,7 @@ def get_latest_application():
             })
 
     except Exception as e:
-        print(f"Error fetching latest application: {e}")
+        app.logger.error("Error fetching latest application: %s", str(e))
         return jsonify({
             "success": False,
             "message": "Error fetching latest application",
@@ -1264,6 +1453,20 @@ def test_cloudinary():
             })
             return jsonify(response_data), 500
 
+    except (ConnectionError, requests.RequestException) as e:
+        return jsonify({
+            "success": False,
+            "message": "Network error connecting to Cloudinary",
+            "error": str(e),
+            "error_type": "network_error"
+        }), 503
+    except (ValueError, TypeError) as e:
+        return jsonify({
+            "success": False,
+            "message": "Configuration error with Cloudinary credentials",
+            "error": str(e),
+            "error_type": "config_error"
+        }), 400
     except Exception as e:
         return jsonify({
             "success": False,
@@ -1321,8 +1524,24 @@ def debug_files(application_id):
 
         return jsonify(debug_info)
 
+    except pymongo.errors.PyMongoError as e:
+        return jsonify({
+            "error": "Database error",
+            "details": str(e),
+            "error_type": "database"
+        }), 503
+    except (ValueError, TypeError) as e:
+        return jsonify({
+            "error": "Data parsing error",
+            "details": str(e),
+            "error_type": "data_format"
+        }), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "Unexpected error",
+            "details": str(e),
+            "error_type": "unknown"
+        }), 500
 
 
 @app.route('/api/test-cv-url')
@@ -1412,8 +1631,6 @@ def test_working_cv():
 def check_cloudinary_file():
     """Check if a specific file exists in Cloudinary using the Admin API."""
     try:
-        import cloudinary.api
-
         # Try to get info about the specific public_id
         public_id = "workwave_coast/cv_wxlzwh"
 
@@ -1460,15 +1677,13 @@ def check_cloudinary_file():
                     })
 
     except Exception as e:
-        return jsonify({"error": f"Cloudinary API error: {str(e)}"}), 500
+        return jsonify({"error": "Cloudinary API error: " + str(e)}), 500
 
 
 @app.route('/api/list-cloudinary-files')
 def list_cloudinary_files():
     """List all files in Cloudinary to see what's actually there."""
     try:
-        import cloudinary.api
-
         results = {}
 
         # List raw files (PDFs)
@@ -1495,54 +1710,7 @@ def list_cloudinary_files():
         return jsonify(results)
 
     except Exception as e:
-        return jsonify({"error": f"Cloudinary API error: {str(e)}"}), 500
-
-
-@app.route('/api/cloudinary-url/<path:full_public_id>')
-def get_cloudinary_public_url_flexible(full_public_id):
-    """Generate a public Cloudinary URL without authentication - flexible version."""
-    try:
-        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-        if not cloud_name:
-            return "Cloudinary not configured", 500
-
-        # Detect resource type by extension for correct URL
-        # If PDF, use /raw/upload/, else /image/upload/
-        if full_public_id.lower().endswith('.pdf'):
-            url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
-            resource_type = 'raw'
-        else:
-            url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
-            resource_type = 'image'
-
-        app.logger.info("Proxy request generated", extra={
-            "full_public_id": full_public_id,
-            "cloud_name": cloud_name,
-            "resource_type": resource_type,
-            "url": url
-        })
-
-        # For debugging, return JSON instead of redirect if requested
-        debug_mode = request.args.get('debug') == 'true'
-        if debug_mode:
-            return jsonify({
-                "debug": True,
-                "full_public_id": full_public_id,
-                "cloud_name": cloud_name,
-                "resource_type": resource_type,
-                "generated_url": url,
-                "message": "This is the URL that would be redirected to"
-            })
-
-        # Redirect to the actual URL
-        return redirect(url)
-
-    except Exception as e:
-        app.logger.error("Error generating Cloudinary URL", extra={
-            "full_public_id": full_public_id,
-            "error": str(e)
-        })
-        return f"Error: {str(e)}", 500
+        return jsonify({"error": "Cloudinary API error: " + str(e)}), 500
 
 
 @app.route('/api/debug-proxy/<path:test_id>')
@@ -1609,12 +1777,26 @@ def serve_file(file_id):
 
         return redirect(file_url)
 
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("Database error serving file", extra={
+            "file_id": file_id,
+            "error": str(e),
+            "error_type": "database"
+        })
+        return "Database error accessing file", 503
+    except (ValueError, KeyError) as e:
+        app.logger.error("File data error", extra={
+            "file_id": file_id,
+            "error": str(e),
+            "error_type": "data_format"
+        })
+        return "Invalid file data format", 400
     except Exception as e:
         app.logger.error("Error serving file", extra={
             "file_id": file_id,
             "error": str(e)
         })
-        return f"Error serving file: {str(e)}", 500
+        return "Error serving file: " + str(e), 500
 
 
 @app.route('/api/system-status', methods=['GET'])
@@ -1632,8 +1814,10 @@ def system_status():
         try:
             client.admin.command('ping')
             mongo_status = "✅ Connected"
-        except Exception as e:
-            mongo_status = f"❌ Error: {str(e)}"
+        except pymongo.errors.PyMongoError as e:
+            mongo_status = f"❌ MongoDB Error: {str(e)}"
+        except (ConnectionError, TimeoutError) as e:
+            mongo_status = f"❌ Network Error: {str(e)}"
 
         # Test Cloudinary
         cloudinary_status = "❌ Not configured"
@@ -1641,14 +1825,16 @@ def system_status():
             try:
                 cloudinary.api.ping()
                 cloudinary_status = "✅ Connected and working"
-            except Exception as e:
-                cloudinary_status = f"❌ Error: {str(e)}"
+            except cloudinary.exceptions.Error as e:
+                cloudinary_status = f"❌ Cloudinary API Error: {str(e)}"
+            except (ConnectionError, requests.RequestException) as e:
+                cloudinary_status = f"❌ Network Error: {str(e)}"
 
         # Count applications
         try:
             app_count = candidates.count_documents({})
-        except Exception:
-            app_count = "Error counting"
+        except pymongo.errors.PyMongoError:
+            app_count = "Database error"
 
         return jsonify({
             "system_version": "2.0.2",
@@ -1666,10 +1852,17 @@ def system_status():
             "timestamp": datetime.utcnow().isoformat()
         })
 
+    except (KeyError, AttributeError) as e:
+        return jsonify({
+            "system_version": "2.0.2",
+            "restart_status": "❌ Configuration error during status check",
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
     except Exception as e:
         return jsonify({
             "system_version": "2.0.2",
-            "restart_status": "❌ Error during status check",
+            "restart_status": "❌ Unexpected error during status check",
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }), 500
@@ -1803,9 +1996,15 @@ def admin_dashboard():
             pending_count=pending_count
         )
 
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("Database error in admin dashboard", extra={"error": str(e)})
+        return "Database error accessing applications", 503
+    except (ValueError, TypeError) as e:
+        app.logger.error("Data processing error in admin dashboard", extra={"error": str(e)})
+        return "Error processing application data", 400
     except Exception as e:
         app.logger.error("Error in admin dashboard", extra={"error": str(e)})
-        return f"Error: {str(e)}", 500
+        return "Error: " + str(e), 500
 
 
 @app.route('/api/metrics', methods=['GET'])
@@ -1850,11 +2049,25 @@ def get_metrics():
 
         return jsonify(metrics)
 
+    except pymongo.errors.PyMongoError as e:
+        app.logger.error("Database error generating metrics", extra={"error": str(e)})
+        return jsonify({
+            "success": False,
+            "message": "Database error generating metrics",
+            "error": str(e)
+        }), 503
+    except (ValueError, ZeroDivisionError) as e:
+        app.logger.error("Calculation error in metrics", extra={"error": str(e)})
+        return jsonify({
+            "success": False,
+            "message": "Error calculating metrics",
+            "error": str(e)
+        }), 400
     except Exception as e:
         app.logger.error("Error generating metrics", extra={"error": str(e)})
         return jsonify({
             "success": False,
-            "message": "Error generating metrics",
+            "message": "Unexpected error generating metrics",
             "error": str(e)
         }), 500
 
