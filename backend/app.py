@@ -89,6 +89,14 @@ ALLOWED_ORIGINS = [
 # Configure CORS
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
 
+@app.after_request
+def add_cors_headers(response):
+    """Ensure CORS headers are added to all responses."""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    return response
+
 # MongoDB configuration
 MONGODB_URI = os.getenv('MONGODB_URI')
 if not MONGODB_URI:
