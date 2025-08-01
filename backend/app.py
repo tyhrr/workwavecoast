@@ -1123,12 +1123,16 @@ def get_cloudinary_public_url_robust(full_public_id):
     return "File not found in Cloudinary as image or raw: " + full_public_id, 404
 @app.route('/', methods=['GET'])
 def home():
-    """Home endpoint that returns basic API information."""
-    return jsonify({
-        "message": "WorkWave Coast Backend API",
-        "status": "running",
-        "version": "2.1.0"
-    })
+    """Serve the frontend index.html as the home page."""
+    try:
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'index.html')
+        if os.path.exists(frontend_path):
+            with open(frontend_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            return "<h2>Frontend no encontrado</h2><p>Busque el archivo en: {}</p>".format(frontend_path), 404
+    except Exception as e:
+        return "Error sirviendo frontend: " + str(e), 500
 
 
 @app.route('/app')
