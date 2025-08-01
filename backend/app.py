@@ -16,10 +16,8 @@ import json
 import re
 import logging
 import requests
-from datetime import datetime
-
+from datetime import datetime, timezone
 from functools import wraps
-
 from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for, send_from_directory
 from flask_cors import CORS, cross_origin
 from flask_limiter import Limiter
@@ -1224,7 +1222,7 @@ def submit_application():
             }), 400
 
         # Add timestamp and status
-        data['created_at'] = datetime.now(datetime.timezone.utc).isoformat()
+        data['created_at'] =data['created_at'] = datetime.now(timezone.utc).isoformat()
         data['status'] = 'pending'
 
         # Sanitize data (strip whitespace)
