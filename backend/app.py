@@ -16,6 +16,8 @@ import json
 import re
 import logging
 import requests
+import sys
+import subprocess
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, request, jsonify, session, render_template_string, redirect, url_for, send_from_directory
@@ -44,9 +46,10 @@ def setup_logging():
         app.logger.removeHandler(handler)
 
     # Configure logging based on environment
-    is_production = os.environ.get('FLASK_ENV') != 'development' and not os.environ.get('DEBUG', 'false').lower() == 'true'
+    # Detect production environment for configuration
+    is_production_env = os.environ.get('FLASK_ENV') != 'development' and not os.environ.get('DEBUG', 'false').lower() == 'true'
 
-    if is_production:
+    if is_production_env:
         handler = logging.StreamHandler()
         formatter = JsonFormatter(
             '%(asctime)s %(name)s %(levelname)s %(message)s'
@@ -1204,37 +1207,6 @@ def serve_admin_file(public_id):
         app.logger.error(f"Error serving admin file: {str(e)}")
         return jsonify({"error": "Admin file access error", "details": str(e)}), 500
 
-        for url in urls_to_try:
-            try:
-                app.logger.info(f"Trying to fetch file from: {url}")
-                response = requests.get(url, timeout=10)
-                if response.status_code == 200:
-                    # Create a proper response with the file content
-                    content_type = response.headers.get('Content-Type', 'application/octet-stream')
-
-                    # For PDFs, ensure proper content type
-                    if public_id.lower().endswith('.pdf'):
-                        content_type = 'application/pdf'
-
-                    from flask import Response
-                    return Response(
-                        response.content,
-                        mimetype=content_type,
-                        headers={
-                            'Content-Disposition': f'inline; filename="{public_id.split("/")[-1]}"',
-                            'Cache-Control': 'public, max-age=3600'
-                        }
-                    )
-            except requests.RequestException as e:
-                app.logger.warning(f"Failed to fetch from {url}: {str(e)}")
-                continue
-
-        return "File not found", 404
-
-    except Exception as e:
-        app.logger.error(f"Error serving file {public_id}: {str(e)}")
-        return "Error serving file", 500
-
 
 @app.route('/', methods=['GET'])
 def home():
@@ -2306,9 +2278,6 @@ if __name__ == '__main__':
 
     if is_production:
         # In production, use Gunicorn instead of Flask development server
-        import subprocess
-        import sys
-
         port = int(os.environ.get('PORT', 10000))
 
         app.logger.info("Production environment detected, starting with Gunicorn...")
@@ -2326,7 +2295,7 @@ if __name__ == '__main__':
         ]
 
         app.logger.info(f"Starting Gunicorn with command: {' '.join(cmd)}")
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=True)
     else:
         # Development mode - use Flask development server
         port = int(os.environ.get('PORT', 5000))
