@@ -1087,42 +1087,59 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
 @app.route('/api/cloudinary-url/<path:full_public_id>')
 def get_cloudinary_public_url_flexible(full_public_id):
     """Generate a public Cloudinary URL without authentication - flexible version."""
-    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-    if not cloud_name:
-        return "Cloudinary not configured", 500
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            app.logger.error("Cloudinary cloud name not configured")
+            return jsonify({"error": "Cloudinary not configured"}), 500
 
-    app.logger.info(f"Cloudinary URL request for: {full_public_id}")
+        app.logger.info(f"Cloudinary URL request for: {full_public_id}")
 
-    # Clean up the public_id - remove any resource type prefixes
-    clean_public_id = full_public_id
-    if clean_public_id.startswith('raw/') or clean_public_id.startswith('image/'):
-        clean_public_id = clean_public_id.split('/', 1)[1]
+        # Clean up the public_id - remove any resource type prefixes
+        clean_public_id = full_public_id
+        if clean_public_id.startswith('raw/') or clean_public_id.startswith('image/'):
+            clean_public_id = clean_public_id.split('/', 1)[1]
 
-    # Try to determine if it's a PDF or other file type
-    is_pdf = clean_public_id.lower().endswith('.pdf') or 'pdf' in clean_public_id.lower()
+        # Try to determine if it's a PDF or other file type
+        is_pdf = clean_public_id.lower().endswith('.pdf') or 'pdf' in clean_public_id.lower()
 
-    if is_pdf:
-        # For PDFs, use raw resource type
-        url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}"
-    else:
-        # For other files, try auto-detect or image
-        url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}"
+        # Try both raw and image resource types
+        urls_to_try = []
+        if is_pdf:
+            # For PDFs, try raw first, then image
+            urls_to_try = [
+                f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}",
+                f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}"
+            ]
+        else:
+            # For other files, try image first, then raw
+            urls_to_try = [
+                f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}",
+                f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}"
+            ]
 
-    app.logger.info(f"Generated Cloudinary URL: {url}")
+        # Use the first URL (most likely to work)
+        url = urls_to_try[0]
+        app.logger.info(f"Generated Cloudinary URL: {url}")
 
-    debug_requested = request.args.get('debug') == 'true'
-    if debug_requested:
-        return jsonify({
-            "debug": True,
-            "original_public_id": full_public_id,
-            "clean_public_id": clean_public_id,
-            "cloud_name": cloud_name,
-            "is_pdf": is_pdf,
-            "generated_url": url,
-            "message": "This is the URL that would be redirected to"
-        })
+        debug_requested = request.args.get('debug') == 'true'
+        if debug_requested:
+            return jsonify({
+                "debug": True,
+                "original_public_id": full_public_id,
+                "clean_public_id": clean_public_id,
+                "cloud_name": cloud_name,
+                "is_pdf": is_pdf,
+                "generated_url": url,
+                "alternative_urls": urls_to_try[1:],
+                "message": "This is the URL that would be redirected to"
+            })
 
-    return redirect(url)
+        return redirect(url)
+
+    except Exception as e:
+        app.logger.error(f"Error generating Cloudinary URL: {str(e)}")
+        return jsonify({"error": "Failed to generate Cloudinary URL", "details": str(e)}), 500
 
 
 @app.route('/api/file/<path:public_id>')
@@ -1140,6 +1157,52 @@ def serve_file_proxy(public_id):
             f"https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}",
             f"https://res.cloudinary.com/{cloud_name}/auto/upload/{public_id}"
         ]
+
+        # Use the first URL and redirect
+        return redirect(urls_to_try[0])
+
+    except Exception as e:
+        app.logger.error(f"Error serving file proxy: {str(e)}")
+        return jsonify({"error": "File proxy error", "details": str(e)}), 500
+
+
+@app.route('/api/admin/file/<path:public_id>')
+def serve_admin_file(public_id):
+    """Serve files for admin panel without authentication requirement."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            app.logger.error("Cloudinary not configured for admin file access")
+            return jsonify({"error": "Cloudinary not configured"}), 500
+
+        app.logger.info(f"Admin file request for: {public_id}")
+
+        # Clean the public_id
+        clean_public_id = public_id
+        if clean_public_id.startswith('raw/') or clean_public_id.startswith('image/'):
+            clean_public_id = clean_public_id.split('/', 1)[1]
+
+        # Try different combinations for file access
+        urls_to_try = [
+            f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}",
+            f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}",
+            f"https://res.cloudinary.com/{cloud_name}/raw/upload/v1753899372/{clean_public_id}",
+            f"https://res.cloudinary.com/{cloud_name}/image/upload/v1753899372/{clean_public_id}"
+        ]
+
+        # Use the most appropriate URL based on file type
+        is_pdf = clean_public_id.lower().endswith('.pdf') or 'pdf' in clean_public_id.lower()
+        if is_pdf:
+            primary_url = urls_to_try[0]  # Try raw first for PDFs
+        else:
+            primary_url = urls_to_try[1]  # Try image first for other files
+
+        app.logger.info(f"Admin redirecting to: {primary_url}")
+        return redirect(primary_url)
+
+    except Exception as e:
+        app.logger.error(f"Error serving admin file: {str(e)}")
+        return jsonify({"error": "Admin file access error", "details": str(e)}), 500
 
         for url in urls_to_try:
             try:
@@ -1466,7 +1529,49 @@ def get_latest_application():
         }), 500
 
 
-@app.route('/api/test-cloudinary', methods=['GET'])
+@app.route('/api/test-cloudinary-config', methods=['GET'])
+def test_cloudinary_config():
+    """Test and display Cloudinary configuration status."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+        config_status = {
+            "cloud_name": cloud_name if cloud_name else "NOT_SET",
+            "api_key": "SET" if api_key else "NOT_SET",
+            "api_secret": "SET" if api_secret else "NOT_SET",
+            "all_configured": all([cloud_name, api_key, api_secret])
+        }
+
+        # Test a known file URL
+        if cloud_name:
+            test_urls = {
+                "test_cv_raw": f"https://res.cloudinary.com/{cloud_name}/raw/upload/workwave_coast/cv_wxlzwh.pdf",
+                "test_cv_image": f"https://res.cloudinary.com/{cloud_name}/image/upload/v1753899372/workwave_coast/cv_wxlzwh.pdf",
+                "proxy_url": "/api/cloudinary-url/v1753899372/workwave_coast/cv_wxlzwh.pdf"
+            }
+        else:
+            test_urls = {"error": "Cloud name not configured"}
+
+        return jsonify({
+            "success": True,
+            "cloudinary_config": config_status,
+            "test_urls": test_urls,
+            "endpoints": {
+                "cloudinary_proxy": "/api/cloudinary-url/<path>",
+                "admin_file": "/api/admin/file/<path>",
+                "authenticated_file": "/api/file/<path>"
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
 def test_cloudinary():
     """Test Cloudinary configuration and connection."""
     try:
@@ -2146,56 +2251,53 @@ def healthz():
 @app.route('/api/startup-info', methods=['GET'])
 def startup_info():
     """Debug endpoint to show how the application started."""
-    startup_details = {
-        "startup_mode": "unknown",
-        "server_type": "unknown",
-        "environment_variables": {
-            "RENDER": os.environ.get('RENDER', 'not_set'),
-            "FLASK_ENV": os.environ.get('FLASK_ENV', 'not_set'),
-            "DEBUG": os.environ.get('DEBUG', 'not_set'),
-            "PORT": os.environ.get('PORT', 'not_set'),
-        },
-        "gunicorn_detected": False,
-        "flask_dev_server": False,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
-
-    # Check if running under Gunicorn
-    if 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower():
-        startup_details["server_type"] = "gunicorn"
-        startup_details["gunicorn_detected"] = True
-        startup_details["startup_mode"] = "production_gunicorn"
-    elif hasattr(sys, 'ps1') or sys.flags.interactive:
-        startup_details["server_type"] = "interactive_python"
-        startup_details["startup_mode"] = "interactive"
-    elif __name__ == '__main__':
-        startup_details["server_type"] = "direct_python_execution"
-        startup_details["flask_dev_server"] = True
-        startup_details["startup_mode"] = "development_flask"
-    else:
-        startup_details["server_type"] = "wsgi_import"
-        startup_details["startup_mode"] = "production_wsgi"
-
-    # Add process information
     try:
-        import psutil
-        process = psutil.Process()
-        startup_details["process_info"] = {
-            "pid": process.pid,
-            "name": process.name(),
-            "cmdline": process.cmdline()[:3],  # First 3 arguments only
-            "parent_pid": process.ppid()
+        startup_details = {
+            "startup_mode": "unknown",
+            "server_type": "unknown",
+            "environment_variables": {
+                "RENDER": os.environ.get('RENDER', 'not_set'),
+                "FLASK_ENV": os.environ.get('FLASK_ENV', 'not_set'),
+                "DEBUG": os.environ.get('DEBUG', 'not_set'),
+                "PORT": os.environ.get('PORT', 'not_set'),
+            },
+            "gunicorn_detected": False,
+            "flask_dev_server": False,
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
-    except ImportError:
-        startup_details["process_info"] = "psutil not available"
+
+        # Check if running under Gunicorn
+        if 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower():
+            startup_details["server_type"] = "gunicorn"
+            startup_details["gunicorn_detected"] = True
+            startup_details["startup_mode"] = "production_gunicorn"
+        elif hasattr(sys, 'ps1') or sys.flags.interactive:
+            startup_details["server_type"] = "interactive_python"
+            startup_details["startup_mode"] = "interactive"
+        elif __name__ == '__main__':
+            startup_details["server_type"] = "direct_python_execution"
+            startup_details["flask_dev_server"] = True
+            startup_details["startup_mode"] = "development_flask"
+        else:
+            startup_details["server_type"] = "wsgi_import"
+            startup_details["startup_mode"] = "production_wsgi"
+
+        # Add process information (with better error handling)
+        startup_details["process_info"] = "Process info disabled for production stability"
+
+        # Add server software detection
+        startup_details["server_software"] = os.environ.get('SERVER_SOFTWARE', 'not_set')
+        startup_details["wsgi_detected"] = 'wsgi' in str(sys.modules.keys()).lower()
+
+        return jsonify(startup_details)
+
     except Exception as e:
-        startup_details["process_info"] = f"Error: {str(e)}"
-
-    # Add server software detection
-    startup_details["server_software"] = os.environ.get('SERVER_SOFTWARE', 'not_set')
-    startup_details["wsgi_detected"] = 'wsgi' in str(sys.modules.keys()).lower()
-
-    return jsonify(startup_details)
+        app.logger.error(f"Error in startup_info endpoint: {str(e)}")
+        return jsonify({
+            "error": "Internal server error in startup_info",
+            "message": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
 
 
 if __name__ == '__main__':
