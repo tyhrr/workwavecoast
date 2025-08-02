@@ -95,3 +95,7 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Documentation - Sensitive Information
+docs/DOCUMENTACION_COMPLETA.md
+DOCUMENTACION_COMPLETA.md
