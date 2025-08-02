@@ -2277,25 +2277,15 @@ if __name__ == '__main__':
     is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
 
     if is_production:
-        # In production, use Gunicorn instead of Flask development server
+        # In production, let Render's configuration handle Gunicorn
+        # This prevents the "double free or corruption" error from programmatic Gunicorn startup
+        app.logger.info("Production environment detected - Render will handle server startup via Procfile/render.yaml")
+        
+        # If this script is called directly in production, just run Flask as fallback
+        # But normally Render should use Procfile or render.yaml instead
         port = int(os.environ.get('PORT', 10000))
-
-        app.logger.info("Production environment detected, starting with Gunicorn...")
-
-        # Start Gunicorn programmatically
-        cmd = [
-            sys.executable, '-m', 'gunicorn',
-            '--bind', f'0.0.0.0:{port}',
-            '--workers', '2',
-            '--timeout', '120',
-            '--keep-alive', '5',
-            '--max-requests', '1000',
-            '--preload',
-            'app:app'
-        ]
-
-        app.logger.info(f"Starting Gunicorn with command: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        app.logger.warning("Running Flask server directly - this should only happen if Procfile/render.yaml failed")
+        app.run(host='0.0.0.0', port=port, debug=False)
     else:
         # Development mode - use Flask development server
         port = int(os.environ.get('PORT', 5000))
