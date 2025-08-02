@@ -1,19 +1,13 @@
-# Render.com configuration file
-# This file tells Render how to build and deploy the application
-
-# Build Command: chmod +x build.sh && ./build.sh
-# Start Command: chmod +x start.sh && ./start.sh
-
-# Environment Variables needed in Render:
-# MONGODB_URI=your_mongodb_connection_string
-# SECRET_KEY=your_secret_key_here
-# ADMIN_USERNAME=your_admin_username
-# ADMIN_PASSWORD=your_admin_password
-# CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-# CLOUDINARY_API_KEY=your_cloudinary_api_key
-# CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-# FLASK_ENV=production
-# DEBUG=false
-# PORT=10000
-
-# Health Check Path: /healthz
+services:
+  - type: web
+    name: workwave-coast-backend
+    env: python
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && gunicorn --config gunicorn_config.py app:app"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: PORT
+        value: 10000

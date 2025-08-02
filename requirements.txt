@@ -1,0 +1,4 @@
+# Main requirements file for Render deployment
+# This file ensures Render can find and install dependencies
+
+-r backend/requirements.txt

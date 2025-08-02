@@ -9,5 +9,6 @@
     "python.linting.flake8Enabled": false,
     "python.linting.mypyEnabled": false,
     "files.trimTrailingWhitespace": true,
-    "files.insertFinalNewline": true
+    "files.insertFinalNewline": true,
+    "materialkv.pythonFile": "main.py"
 }

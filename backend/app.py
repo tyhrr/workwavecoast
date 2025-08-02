@@ -1090,26 +1090,26 @@ def get_cloudinary_public_url_flexible(full_public_id):
     cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
     if not cloud_name:
         return "Cloudinary not configured", 500
-    
+
     app.logger.info(f"Cloudinary URL request for: {full_public_id}")
 
     # Clean up the public_id - remove any resource type prefixes
     clean_public_id = full_public_id
     if clean_public_id.startswith('raw/') or clean_public_id.startswith('image/'):
         clean_public_id = clean_public_id.split('/', 1)[1]
-    
+
     # Try to determine if it's a PDF or other file type
     is_pdf = clean_public_id.lower().endswith('.pdf') or 'pdf' in clean_public_id.lower()
-    
+
     if is_pdf:
         # For PDFs, use raw resource type
         url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}"
     else:
         # For other files, try auto-detect or image
         url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}"
-    
+
     app.logger.info(f"Generated Cloudinary URL: {url}")
-    
+
     debug_requested = request.args.get('debug') == 'true'
     if debug_requested:
         return jsonify({
@@ -1140,7 +1140,7 @@ def serve_file_proxy(public_id):
             f"https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}",
             f"https://res.cloudinary.com/{cloud_name}/auto/upload/{public_id}"
         ]
-        
+
         for url in urls_to_try:
             try:
                 app.logger.info(f"Trying to fetch file from: {url}")
@@ -1148,11 +1148,11 @@ def serve_file_proxy(public_id):
                 if response.status_code == 200:
                     # Create a proper response with the file content
                     content_type = response.headers.get('Content-Type', 'application/octet-stream')
-                    
+
                     # For PDFs, ensure proper content type
                     if public_id.lower().endswith('.pdf'):
                         content_type = 'application/pdf'
-                    
+
                     from flask import Response
                     return Response(
                         response.content,
@@ -1165,9 +1165,9 @@ def serve_file_proxy(public_id):
             except requests.RequestException as e:
                 app.logger.warning(f"Failed to fetch from {url}: {str(e)}")
                 continue
-        
+
         return "File not found", 404
-        
+
     except Exception as e:
         app.logger.error(f"Error serving file {public_id}: {str(e)}")
         return "Error serving file", 500
@@ -2144,6 +2144,36 @@ def healthz():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    # Check if we're in production (Render environment)
+    is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
+
+    if is_production:
+        # In production, use Gunicorn instead of Flask development server
+        import subprocess
+        import sys
+
+        port = int(os.environ.get('PORT', 10000))
+
+        app.logger.info("Production environment detected, starting with Gunicorn...")
+
+        # Start Gunicorn programmatically
+        cmd = [
+            sys.executable, '-m', 'gunicorn',
+            '--bind', f'0.0.0.0:{port}',
+            '--workers', '2',
+            '--timeout', '120',
+            '--keep-alive', '5',
+            '--max-requests', '1000',
+            '--preload',
+            'app:app'
+        ]
+
+        app.logger.info(f"Starting Gunicorn with command: {' '.join(cmd)}")
+        subprocess.run(cmd)
+    else:
+        # Development mode - use Flask development server
+        port = int(os.environ.get('PORT', 5000))
+        debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
+
+        app.logger.info("Development environment detected, starting Flask dev server...")
+        app.run(host='0.0.0.0', port=port, debug=debug_mode)
