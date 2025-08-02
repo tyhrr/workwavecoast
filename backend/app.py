@@ -31,6 +31,7 @@ from pythonjsonlogger.json import JsonFormatter
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import cloudinary.utils
 import cloudinary.exceptions
 
 # Load environment variables
@@ -287,22 +288,30 @@ def upload_to_cloudinary(file, field_name, file_size):
 
     try:
 
-        # Configure upload options for public access, never signed or authenticated
+        # Configure upload options for GUARANTEED public access
         upload_options = {
             'folder': 'workwave_coast',
             'use_filename': True,
             'unique_filename': True,
-            'type': 'upload',  # always public
-            'access_mode': 'public',
-            # No upload_preset, no type: authenticated
+            'type': 'upload',  # Standard upload type
+            'access_mode': 'public',  # Force public access
+            'sign_url': False,  # Disable URL signing
+            'secure': True,  # Use HTTPS but public
+            'public_id_prefix': '',  # No authentication prefix
+            'invalidate': True,  # Clear CDN cache
+            'overwrite': False,  # Keep unique filenames
+            'resource_type': 'auto',  # Let Cloudinary auto-detect, then override if needed
         }
 
-        # Set resource type based on file type (PDFs as raw, others auto)
+        # Override resource type for PDFs to ensure proper handling
         if field_name == 'cv' and file.filename.lower().endswith('.pdf'):
             upload_options['resource_type'] = 'raw'
             upload_options['format'] = 'pdf'
-        else:
-            upload_options['resource_type'] = 'auto'
+
+        # For documents, also use raw type
+        elif field_name == 'documentos' and file.filename.lower().endswith('.pdf'):
+            upload_options['resource_type'] = 'raw'
+            upload_options['format'] = 'pdf'
 
         # Upload file
         upload_result = cloudinary.uploader.upload(file, **upload_options)
@@ -313,7 +322,16 @@ def upload_to_cloudinary(file, field_name, file_size):
 
         # Generate both the direct URL and our proxy URL
         direct_url = upload_result['secure_url']
-        proxy_url = f"/api/cloudinary-url/{resource_type}/{public_id}"
+        proxy_url = f"/api/admin/cloudinary-proxy/{public_id}"
+
+        # VERIFY PUBLIC ACCESS: Test if the uploaded file is publicly accessible
+        access_verified = False
+        try:
+            test_response = requests.head(direct_url, timeout=5)
+            access_verified = test_response.status_code == 200
+            app.logger.info(f"Public access verification: {access_verified} (status: {test_response.status_code})")
+        except Exception as verify_error:
+            app.logger.warning(f"Could not verify public access: {str(verify_error)}")
 
         # Log the upload for debugging
         app.logger.info("File uploaded to Cloudinary", extra={
@@ -323,7 +341,10 @@ def upload_to_cloudinary(file, field_name, file_size):
             "resource_type": resource_type,
             "direct_url": direct_url,
             "proxy_url": proxy_url,
-            "bytes": upload_result.get('bytes', 0)
+            "bytes": upload_result.get('bytes', 0),
+            "access_verified": access_verified,
+            "upload_type": upload_options.get('type'),
+            "access_mode": upload_options.get('access_mode')
         })
 
         return {
@@ -908,15 +929,15 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     {% if app.get('files_parsed') %}
                         {% for file_type, file_info in app.get('files_parsed', {}).items() %}
                             {% if file_info.get('url') %}
-                                {% if file_type == 'cv' and 'cloudinary.com' in file_info.get('url', '') %}
-                                    {% set cv_url_parts = file_info.get('url', '').split('/') %}
+                                {% if 'cloudinary.com' in file_info.get('url', '') %}
+                                    {% set url_parts = file_info.get('url', '').split('/') %}
                                     {% set proxy_path = '' %}
-                                    {% for i in range(cv_url_parts|length) %}
-                                        {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length and not proxy_path %}
-                                            {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
+                                    {% for i in range(url_parts|length) %}
+                                        {% if url_parts[i] == 'upload' and i + 1 < url_parts|length and not proxy_path %}
+                                            {% set proxy_path = '/'.join(url_parts[i+1:]) %}
                                         {% endif %}
                                     {% endfor %}
-                                    {% set file_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
+                                    {% set file_url = '/api/admin/cloudinary-proxy/' + proxy_path if proxy_path else file_info.get('url') %}
                                 {% else %}
                                     {% set file_url = file_info.get('url') %}
                                 {% endif %}
@@ -948,15 +969,15 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                             <div class="file-detail-item">
                                 <strong>{{ file_type.title() }}:</strong>
                                 {% if file_info.get('url') %}
-                                    {% if file_type == 'cv' and 'cloudinary.com' in file_info.get('url', '') %}
-                                        {% set cv_url_parts = file_info.get('url', '').split('/') %}
+                                    {% if 'cloudinary.com' in file_info.get('url', '') %}
+                                        {% set url_parts = file_info.get('url', '').split('/') %}
                                         {% set proxy_path = '' %}
-                                        {% for i in range(cv_url_parts|length) %}
-                                            {% if cv_url_parts[i] == 'upload' and i + 1 < cv_url_parts|length and not proxy_path %}
-                                                {% set proxy_path = '/'.join(cv_url_parts[i+1:]) %}
+                                        {% for i in range(url_parts|length) %}
+                                            {% if url_parts[i] == 'upload' and i + 1 < url_parts|length and not proxy_path %}
+                                                {% set proxy_path = '/'.join(url_parts[i+1:]) %}
                                             {% endif %}
                                         {% endfor %}
-                                        {% set detail_url = '/api/cloudinary-url/' + proxy_path if proxy_path else file_info.get('url') %}
+                                        {% set detail_url = '/api/admin/cloudinary-proxy/' + proxy_path if proxy_path else file_info.get('url') %}
                                     {% else %}
                                         {% set detail_url = file_info.get('url') %}
                                     {% endif %}
@@ -1061,21 +1082,57 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             }
         }
 
-        // Add error handling to all file links
+        // Enhanced file link handling with signed URLs
         document.addEventListener('DOMContentLoaded', function() {
             filterApplications();
 
-            // Add error handling to file links
-            const fileLinks = document.querySelectorAll('.file-link[href*="cloudinary.com"]');
+            // Add click handlers to file links for getting signed URLs
+            const fileLinks = document.querySelectorAll('.file-link[href*="/api/admin/cloudinary-proxy/"]');
             fileLinks.forEach(link => {
-                link.addEventListener('error', function() {
-                    console.warn('File link error, trying fallback:', this.href);
-                    const publicId = this.getAttribute('data-public-id');
-                    if (publicId) {
-                        this.href = '/api/file/' + publicId;
-                        this.style.backgroundColor = '#fff3cd';
-                        this.title = 'Usando enlace de respaldo - ' + this.title;
-                    }
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    const originalHref = this.href;
+                    const filePath = originalHref.replace(/.*\\/api\\/admin\\/cloudinary-proxy\\//, '');
+
+                    // Change button to loading state
+                    const originalText = this.textContent;
+                    this.textContent = originalText + ' 🔄';
+                    this.style.backgroundColor = '#ffc947';
+
+                    // Get signed URL
+                    fetch('/api/admin/signed-url/' + filePath)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.signed_url) {
+                                // Open the signed URL
+                                window.open(data.signed_url, '_blank');
+                                this.textContent = originalText + ' ✅';
+                                this.style.backgroundColor = '#28a745';
+                            } else {
+                                // Fallback to original proxy
+                                window.open(originalHref, '_blank');
+                                this.textContent = originalText + ' ⚠️';
+                                this.style.backgroundColor = '#ffc107';
+                            }
+
+                            // Reset after 2 seconds
+                            setTimeout(() => {
+                                this.textContent = originalText;
+                                this.style.backgroundColor = '#00B4D8';
+                            }, 2000);
+                        })
+                        .catch(error => {
+                            console.warn('Signed URL failed, using proxy:', error);
+                            window.open(originalHref, '_blank');
+                            this.textContent = originalText + ' ⚠️';
+                            this.style.backgroundColor = '#dc3545';
+
+                            setTimeout(() => {
+                                this.textContent = originalText;
+                                this.style.backgroundColor = '#00B4D8';
+                            }, 2000);
+                        });
                 });
             });
         });
@@ -1087,6 +1144,336 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
 # Route handlers
 
 ## Eliminadas las funciones duplicadas de admin_login, admin_panel y admin_logout para evitar redeclaración.
+@app.route('/api/admin/check-file-access', methods=['GET'])
+def check_file_access_status():
+    """Check public access status of all workwave_coast files."""
+    try:
+        # Get all files using search
+        search_results = cloudinary.Search().expression('folder:workwave_coast').max_results(100).execute()
+        files = search_results.get('resources', [])
+
+        results = {
+            "total_files": len(files),
+            "accessible_files": [],
+            "inaccessible_files": [],
+            "check_timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        for file_info in files:
+            public_id = file_info.get('public_id')
+            secure_url = file_info.get('secure_url')
+
+            # Test access
+            try:
+                response = requests.head(secure_url, timeout=10)
+                is_accessible = response.status_code == 200
+
+                file_status = {
+                    "public_id": public_id,
+                    "url": secure_url,
+                    "status_code": response.status_code,
+                    "accessible": is_accessible,
+                    "resource_type": file_info.get('resource_type', 'unknown'),
+                    "format": file_info.get('format', 'unknown'),
+                    "bytes": file_info.get('bytes', 0)
+                }
+
+                if is_accessible:
+                    results["accessible_files"].append(file_status)
+                else:
+                    results["inaccessible_files"].append(file_status)
+
+            except Exception as e:
+                results["inaccessible_files"].append({
+                    "public_id": public_id,
+                    "url": secure_url,
+                    "error": str(e),
+                    "accessible": False
+                })
+
+        results["summary"] = {
+            "accessible_count": len(results["accessible_files"]),
+            "inaccessible_count": len(results["inaccessible_files"]),
+            "access_rate": f"{(len(results['accessible_files']) / len(files) * 100):.1f}%" if files else "0%"
+        }
+
+        return jsonify(results)
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/api/admin/make-files-public', methods=['POST'])
+def make_existing_files_public():
+    """Make all existing workwave_coast files public in Cloudinary."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+        if not all([cloud_name, api_key, api_secret]):
+            return jsonify({"error": "Cloudinary not configured"}), 500
+
+        app.logger.info("Starting bulk public access conversion for workwave_coast files")
+
+        results = {
+            "success": True,
+            "processed_files": [],
+            "errors": [],
+            "summary": {}
+        }
+
+        # Get all files in the workwave_coast folder using Search API (works better)
+        try:
+            # Use search to get all files in the folder
+            search_results = cloudinary.Search().expression('folder:workwave_coast').max_results(500).execute()
+            all_files_data = search_results.get('resources', [])
+
+            all_files = []
+            for file_info in all_files_data:
+                # Determine resource type from the file info
+                resource_type = file_info.get('resource_type', 'image')
+                all_files.append((file_info, resource_type))
+
+            app.logger.info(f"Found {len(all_files)} files to process using Search API")
+
+            for file_info, resource_type in all_files:
+                public_id = file_info.get('public_id')
+                try:
+                    # Update the file to be public
+                    update_result = cloudinary.uploader.explicit(
+                        public_id,
+                        resource_type=resource_type,
+                        type="upload",
+                        access_mode="public"
+                    )
+
+                    # Verify the update
+                    new_url = update_result.get('secure_url')
+
+                    results["processed_files"].append({
+                        "public_id": public_id,
+                        "resource_type": resource_type,
+                        "new_url": new_url,
+                        "status": "success"
+                    })
+
+                    app.logger.info(f"Made public: {public_id}")
+
+                except Exception as file_error:
+                    error_msg = f"Failed to update {public_id}: {str(file_error)}"
+                    results["errors"].append(error_msg)
+                    app.logger.error(error_msg)
+
+            # Generate summary
+            results["summary"] = {
+                "total_files": len(all_files),
+                "successful": len(results["processed_files"]),
+                "failed": len(results["errors"]),
+                "success_rate": f"{(len(results['processed_files']) / len(all_files) * 100):.1f}%" if all_files else "0%"
+            }
+
+            return jsonify(results)
+
+        except Exception as api_error:
+            app.logger.error(f"Error accessing Cloudinary API: {str(api_error)}")
+            return jsonify({
+                "success": False,
+                "error": f"Failed to access files: {str(api_error)}"
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error in make files public endpoint: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "Bulk update failed",
+            "details": str(e)
+        }), 500
+
+
+@app.route('/api/admin/download-file/<path:file_path>')
+def admin_download_file(file_path):
+    """Download file from Cloudinary using server credentials and serve it directly."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+        if not all([cloud_name, api_key, api_secret]):
+            return jsonify({"error": "Cloudinary not configured"}), 500
+
+        app.logger.info(f"Direct download request for: {file_path}")
+
+        # Clean up the file path
+        clean_path = file_path
+        if clean_path.startswith('raw/') or clean_path.startswith('image/'):
+            clean_path = clean_path.split('/', 1)[1]
+
+        try:
+            # Use Cloudinary's download method with authentication
+            download_url = cloudinary.utils.cloudinary_url(
+                clean_path,
+                resource_type='raw',  # Try raw first for PDFs
+                type='upload',
+                sign_url=True,
+                auth_token={
+                    'key': api_key,
+                    'duration': 3600,  # 1 hour
+                    'start_time': int(datetime.now(timezone.utc).timestamp())
+                }
+            )[0]
+
+            # Download the file using server credentials
+            headers = {
+                'Authorization': f'Basic {api_key}:{api_secret}',
+                'User-Agent': 'WorkWave-Coast-Admin/1.0'
+            }
+
+            response = requests.get(download_url, headers=headers, timeout=30)
+
+            if response.status_code == 200:
+                # Determine content type based on file extension
+                content_type = 'application/pdf' if clean_path.lower().endswith('.pdf') else 'application/octet-stream'
+
+                # Extract filename from path
+                filename = clean_path.split('/')[-1]
+
+                # Create response with file content
+                from flask import Response
+                return Response(
+                    response.content,
+                    mimetype=content_type,
+                    headers={
+                        'Content-Disposition': f'inline; filename="{filename}"',
+                        'Content-Length': str(len(response.content)),
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                )
+            else:
+                app.logger.error(f"Failed to download file: HTTP {response.status_code}")
+                return jsonify({
+                    "error": f"Failed to download file: HTTP {response.status_code}",
+                    "file_path": file_path
+                }), response.status_code
+
+        except Exception as download_error:
+            app.logger.error(f"Error downloading file: {str(download_error)}")
+            return jsonify({
+                "error": f"Download failed: {str(download_error)}",
+                "file_path": file_path
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error in download file endpoint: {str(e)}")
+        return jsonify({
+            "error": "Download endpoint failed",
+            "details": str(e)
+        }), 500
+
+
+@app.route('/api/admin/signed-url/<path:file_path>')
+def admin_get_signed_url(file_path):
+    """Generate a temporary signed URL for accessing private Cloudinary files."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+        if not all([cloud_name, api_key, api_secret]):
+            return jsonify({"error": "Cloudinary not configured"}), 500
+
+        app.logger.info(f"Generating signed URL for: {file_path}")
+
+        # Clean up the file path
+        clean_path = file_path
+        if clean_path.startswith('raw/') or clean_path.startswith('image/'):
+            clean_path = clean_path.split('/', 1)[1]
+
+        # Determine resource type
+        is_pdf = clean_path.lower().endswith('.pdf') or 'pdf' in clean_path.lower()
+        resource_type = 'raw' if is_pdf else 'image'
+
+        # Generate signed URL with 1 hour expiration
+        try:
+            # Use Cloudinary's utils to generate a signed URL
+            signed_url = cloudinary.utils.cloudinary_url(
+                clean_path,
+                resource_type=resource_type,
+                type='upload',
+                sign_url=True,
+                expires_at=int((datetime.now(timezone.utc).timestamp()) + 3600),  # 1 hour from now
+                secure=True
+            )[0]
+
+            app.logger.info(f"Generated signed URL: {signed_url}")
+
+            return jsonify({
+                "success": True,
+                "signed_url": signed_url,
+                "expires_in_seconds": 3600,
+                "file_path": file_path,
+                "resource_type": resource_type
+            })
+
+        except Exception as e:
+            app.logger.error(f"Error generating signed URL: {str(e)}")
+            return jsonify({"error": f"Failed to generate signed URL: {str(e)}"}), 500
+
+    except Exception as e:
+        app.logger.error(f"Error in signed URL endpoint: {str(e)}")
+        return jsonify({"error": "Signed URL generation failed", "details": str(e)}), 500
+
+
+@app.route('/api/admin/cloudinary-proxy/<path:file_path>')
+def admin_cloudinary_proxy(file_path):
+    """Public proxy for Cloudinary files specifically for admin panel - no auth required."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            app.logger.error("Cloudinary not configured for admin proxy")
+            return jsonify({"error": "Cloudinary not configured"}), 500
+
+        app.logger.info(f"Admin Cloudinary proxy request for: {file_path}")
+
+        # Clean up the file path - remove any prefixes
+        clean_path = file_path
+        if clean_path.startswith('raw/') or clean_path.startswith('image/'):
+            clean_path = clean_path.split('/', 1)[1]
+
+        # Determine resource type based on file extension
+        is_pdf = clean_path.lower().endswith('.pdf') or 'pdf' in clean_path.lower()
+
+        # Generate the direct Cloudinary URL
+        if is_pdf:
+            # For PDFs, try raw resource type first
+            cloudinary_url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_path}"
+        else:
+            # For other files, try image resource type first
+            cloudinary_url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_path}"
+
+        app.logger.info(f"Admin proxy redirecting to: {cloudinary_url}")
+
+        # Add CORS headers for admin panel access
+        response = redirect(cloudinary_url)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET'
+        return response
+
+    except Exception as e:
+        app.logger.error(f"Error in admin Cloudinary proxy: {str(e)}")
+        return jsonify({
+            "error": "Admin proxy error",
+            "details": str(e),
+            "file_path": file_path
+        }), 500
+
+
 @app.route('/api/cloudinary-url/<path:full_public_id>')
 def get_cloudinary_public_url_flexible(full_public_id):
     """Generate a public Cloudinary URL without authentication - flexible version."""
@@ -1544,6 +1931,314 @@ def test_cloudinary_config():
             "error": str(e),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
+
+
+@app.route('/api/diagnose-cloudinary', methods=['GET'])
+def diagnose_cloudinary():
+    """Comprehensive Cloudinary connection and file access diagnosis."""
+    try:
+        diagnosis = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "system_version": "2.1.0",
+            "diagnosis_steps": []
+        }
+
+        # Step 1: Check environment variables
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = os.getenv('CLOUDINARY_API_KEY')
+        api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+        env_check = {
+            "step": "Environment Variables Check",
+            "cloud_name": cloud_name if cloud_name else "❌ NOT_SET",
+            "api_key": "✅ SET" if api_key else "❌ NOT_SET",
+            "api_secret": "✅ SET" if api_secret else "❌ NOT_SET",
+            "status": "✅ PASS" if all([cloud_name, api_key, api_secret]) else "❌ FAIL"
+        }
+        diagnosis["diagnosis_steps"].append(env_check)
+
+        if not all([cloud_name, api_key, api_secret]):
+            diagnosis["final_status"] = "❌ FAILED - Missing environment variables"
+            return jsonify(diagnosis)
+
+        # Step 2: Test Cloudinary API connection
+        try:
+            api_test = cloudinary.api.ping()
+            api_check = {
+                "step": "Cloudinary API Connection Test",
+                "status": "✅ PASS",
+                "response": api_test
+            }
+        except Exception as e:
+            api_check = {
+                "step": "Cloudinary API Connection Test",
+                "status": "❌ FAIL",
+                "error": str(e)
+            }
+        diagnosis["diagnosis_steps"].append(api_check)
+
+        # Step 3: List recent files in workwave_coast folder
+        try:
+            recent_files = cloudinary.api.resources(
+                resource_type="raw",
+                prefix="workwave_coast/",
+                max_results=10
+            )
+            files_check = {
+                "step": "Recent Raw Files Check",
+                "status": "✅ PASS",
+                "files_found": len(recent_files.get('resources', [])),
+                "files": [
+                    {
+                        "public_id": resource.get('public_id'),
+                        "secure_url": resource.get('secure_url'),
+                        "format": resource.get('format'),
+                        "bytes": resource.get('bytes'),
+                        "created_at": resource.get('created_at')
+                    }
+                    for resource in recent_files.get('resources', [])[:5]
+                ]
+            }
+        except Exception as e:
+            files_check = {
+                "step": "Recent Raw Files Check",
+                "status": "❌ FAIL",
+                "error": str(e)
+            }
+        diagnosis["diagnosis_steps"].append(files_check)
+
+        # Step 4: Test a specific file URL
+        if 'files' in files_check and files_check['files'] and isinstance(files_check['files'], list) and len(files_check['files']) > 0:
+            test_file = files_check['files'][0]
+            if isinstance(test_file, dict):
+                test_public_id = test_file.get('public_id', '')
+
+                # Test different URL variations
+                url_tests = []
+                test_urls = [
+                    f"https://res.cloudinary.com/{cloud_name}/raw/upload/{test_public_id}",
+                    f"https://res.cloudinary.com/{cloud_name}/image/upload/{test_public_id}",
+                    test_file.get('secure_url', '')  # Direct URL from API
+                ]
+
+                for i, url in enumerate(test_urls):
+                    try:
+                        response = requests.head(url, timeout=10)
+                        url_tests.append({
+                            f"url_{i+1}": url,
+                            "status": response.status_code,
+                            "accessible": response.status_code == 200
+                        })
+                    except Exception as e:
+                        url_tests.append({
+                            f"url_{i+1}": url,
+                            "status": "ERROR",
+                            "error": str(e)
+                        })
+
+                url_check = {
+                    "step": "File URL Accessibility Test",
+                    "test_file": test_public_id,
+                    "url_tests": url_tests
+                }
+                diagnosis["diagnosis_steps"].append(url_check)
+
+        # Step 5: Check recent applications with files
+        try:
+            recent_apps = list(candidates.find(
+                {"files": {"$ne": "{}"}},
+                {"files": 1, "nombre": 1, "apellido": 1, "created_at": 1}
+            ).sort("created_at", -1).limit(3))
+
+            app_files_check = {
+                "step": "Recent Applications Files Check",
+                "status": "✅ PASS",
+                "recent_applications": []
+            }
+
+            for app in recent_apps:
+                try:
+                    files_data = json.loads(app.get('files', '{}'))
+                    app_files_check["recent_applications"].append({
+                        "applicant": f"{app.get('nombre', '')} {app.get('apellido', '')}",
+                        "created_at": app.get('created_at', ''),
+                        "files_count": len(files_data),
+                        "files": files_data
+                    })
+                except Exception as e:
+                    app_files_check["recent_applications"].append({
+                        "applicant": f"{app.get('nombre', '')} {app.get('apellido', '')}",
+                        "error": f"Failed to parse files: {str(e)}"
+                    })
+        except Exception as e:
+            app_files_check = {
+                "step": "Recent Applications Files Check",
+                "status": "❌ FAIL",
+                "error": str(e)
+            }
+        diagnosis["diagnosis_steps"].append(app_files_check)
+
+        # Final diagnosis
+        failed_steps = [step for step in diagnosis["diagnosis_steps"] if step.get("status") == "❌ FAIL"]
+        if failed_steps:
+            diagnosis["final_status"] = f"❌ {len(failed_steps)} step(s) failed"
+            diagnosis["recommendations"] = [
+                "Check environment variables are set correctly",
+                "Verify Cloudinary API credentials",
+                "Check network connectivity to Cloudinary",
+                "Review file upload process"
+            ]
+        else:
+            diagnosis["final_status"] = "✅ All checks passed"
+
+        return jsonify(diagnosis)
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/api/test-file-access/<path:file_path>', methods=['GET'])
+def test_file_access(file_path):
+    """Test file access with different URL patterns."""
+    try:
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            return jsonify({"error": "Cloud name not configured"}), 500
+
+        # Generate different URL patterns to test
+        test_results = {
+            "file_path": file_path,
+            "cloud_name": cloud_name,
+            "url_tests": [],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Pattern 1: Raw upload with path
+        url1 = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{file_path}"
+
+        # Pattern 2: Image upload with path
+        url2 = f"https://res.cloudinary.com/{cloud_name}/image/upload/{file_path}"
+
+        # Pattern 3: Auto upload with path
+        url3 = f"https://res.cloudinary.com/{cloud_name}/auto/upload/{file_path}"
+
+        # Pattern 4: With workwave_coast prefix if not already present
+        if not file_path.startswith('workwave_coast/'):
+            url4 = f"https://res.cloudinary.com/{cloud_name}/raw/upload/workwave_coast/{file_path}"
+        else:
+            url4 = None
+
+        test_urls = [
+            ("raw_upload", url1),
+            ("image_upload", url2),
+            ("auto_upload", url3)
+        ]
+
+        if url4:
+            test_urls.append(("raw_with_prefix", url4))
+
+        for label, url in test_urls:
+            try:
+                response = requests.head(url, timeout=10)
+                test_results["url_tests"].append({
+                    "label": label,
+                    "url": url,
+                    "status_code": response.status_code,
+                    "accessible": response.status_code == 200,
+                    "headers": dict(response.headers)
+                })
+            except Exception as e:
+                test_results["url_tests"].append({
+                    "label": label,
+                    "url": url,
+                    "error": str(e),
+                    "accessible": False
+                })
+
+        return jsonify(test_results)
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/api/cloudinary-ping', methods=['GET'])
+def cloudinary_ping():
+    """Simple ping test for Cloudinary API."""
+    try:
+        # Just test the ping endpoint - should not require type parameter
+        ping_result = cloudinary.api.ping()
+
+        return jsonify({
+            "success": True,
+            "ping_result": ping_result,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/api/list-cloudinary-files', methods=['GET'])
+def list_cloudinary_files():
+    """List all files in the workwave_coast folder."""
+    try:
+        results = {"success": True, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+        # Try multiple approaches to list files
+        # Approach 1: List by prefix
+        try:
+            raw_files = cloudinary.api.resources(
+                prefix="workwave_coast/"
+            )
+            results["by_prefix"] = {
+                "count": len(raw_files.get('resources', [])),
+                "files": [f.get('public_id') for f in raw_files.get('resources', [])[:5]]
+            }
+        except Exception as e:
+            results["by_prefix_error"] = str(e)
+
+        # Approach 2: Use search
+        try:
+            search_results = cloudinary.Search().expression('folder:workwave_coast').execute()
+            results["by_search"] = {
+                "count": search_results.get('total_count', 0),
+                "files": [f.get('public_id') for f in search_results.get('resources', [])[:5]]
+            }
+        except Exception as e:
+            results["by_search_error"] = str(e)
+
+        # Approach 3: List all resources and filter
+        try:
+            all_resources = cloudinary.api.resources(max_results=100)
+            workwave_files = [
+                f for f in all_resources.get('resources', [])
+                if 'workwave' in f.get('public_id', '').lower()
+            ]
+            results["filtered"] = {
+                "count": len(workwave_files),
+                "files": [f.get('public_id') for f in workwave_files[:5]]
+            }
+        except Exception as e:
+            results["filtered_error"] = str(e)
+
+        return jsonify(results)
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
 def test_cloudinary():
     """Test Cloudinary configuration and connection."""
     try:
@@ -1817,39 +2512,6 @@ def check_cloudinary_file():
                         },
                         "suggestion": "File might not exist or have different public_id"
                     })
-
-    except Exception as e:
-        return jsonify({"error": "Cloudinary API error: " + str(e)}), 500
-
-
-@app.route('/api/list-cloudinary-files')
-def list_cloudinary_files():
-    """List all files in Cloudinary to see what's actually there."""
-    try:
-        results = {}
-
-        # List raw files (PDFs)
-        try:
-            raw_files = cloudinary.api.resources(resource_type="raw", prefix="workwave_coast/", max_results=50)
-            results["raw_files"] = raw_files.get('resources', [])
-        except Exception as e:
-            results["raw_files_error"] = str(e)
-
-        # List image files
-        try:
-            image_files = cloudinary.api.resources(resource_type="image", prefix="workwave_coast/", max_results=50)
-            results["image_files"] = image_files.get('resources', [])
-        except Exception as e:
-            results["image_files_error"] = str(e)
-
-        # Also try without prefix to see all files
-        try:
-            all_raw = cloudinary.api.resources(resource_type="raw", max_results=10)
-            results["all_raw_files"] = all_raw.get('resources', [])
-        except Exception as e:
-            results["all_raw_error"] = str(e)
-
-        return jsonify(results)
 
     except Exception as e:
         return jsonify({"error": "Cloudinary API error: " + str(e)}), 500
@@ -2280,7 +2942,7 @@ if __name__ == '__main__':
         # In production, let Render's configuration handle Gunicorn
         # This prevents the "double free or corruption" error from programmatic Gunicorn startup
         app.logger.info("Production environment detected - Render will handle server startup via Procfile/render.yaml")
-        
+
         # If this script is called directly in production, just run Flask as fallback
         # But normally Render should use Procfile or render.yaml instead
         port = int(os.environ.get('PORT', 10000))
