@@ -2143,6 +2143,61 @@ def healthz():
     return jsonify({"status": "ok"}), 200
 
 
+@app.route('/api/startup-info', methods=['GET'])
+def startup_info():
+    """Debug endpoint to show how the application started."""
+    startup_details = {
+        "startup_mode": "unknown",
+        "server_type": "unknown",
+        "environment_variables": {
+            "RENDER": os.environ.get('RENDER', 'not_set'),
+            "FLASK_ENV": os.environ.get('FLASK_ENV', 'not_set'),
+            "DEBUG": os.environ.get('DEBUG', 'not_set'),
+            "PORT": os.environ.get('PORT', 'not_set'),
+        },
+        "gunicorn_detected": False,
+        "flask_dev_server": False,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Check if running under Gunicorn
+    if 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower():
+        startup_details["server_type"] = "gunicorn"
+        startup_details["gunicorn_detected"] = True
+        startup_details["startup_mode"] = "production_gunicorn"
+    elif hasattr(sys, 'ps1') or sys.flags.interactive:
+        startup_details["server_type"] = "interactive_python"
+        startup_details["startup_mode"] = "interactive"
+    elif __name__ == '__main__':
+        startup_details["server_type"] = "direct_python_execution"
+        startup_details["flask_dev_server"] = True
+        startup_details["startup_mode"] = "development_flask"
+    else:
+        startup_details["server_type"] = "wsgi_import"
+        startup_details["startup_mode"] = "production_wsgi"
+
+    # Add process information
+    try:
+        import psutil
+        process = psutil.Process()
+        startup_details["process_info"] = {
+            "pid": process.pid,
+            "name": process.name(),
+            "cmdline": process.cmdline()[:3],  # First 3 arguments only
+            "parent_pid": process.ppid()
+        }
+    except ImportError:
+        startup_details["process_info"] = "psutil not available"
+    except Exception as e:
+        startup_details["process_info"] = f"Error: {str(e)}"
+
+    # Add server software detection
+    startup_details["server_software"] = os.environ.get('SERVER_SOFTWARE', 'not_set')
+    startup_details["wsgi_detected"] = 'wsgi' in str(sys.modules.keys()).lower()
+
+    return jsonify(startup_details)
+
+
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
     is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
