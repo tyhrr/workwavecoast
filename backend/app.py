@@ -112,8 +112,8 @@ ALLOWED_ORIGINS = [
 ]
 
 # Configure CORS with proper settings
-CORS(app, 
-     origins=ALLOWED_ORIGINS, 
+CORS(app,
+     origins=ALLOWED_ORIGINS,
      supports_credentials=True,
      allow_headers=['Content-Type', 'Authorization'],
      methods=['GET', 'POST', 'OPTIONS'])
@@ -1090,23 +1090,34 @@ def get_cloudinary_public_url_flexible(full_public_id):
     cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
     if not cloud_name:
         return "Cloudinary not configured", 500
+    
+    app.logger.info(f"Cloudinary URL request for: {full_public_id}")
 
-    # Detect resource type by extension for correct URL
-    # If PDF, use /raw/upload/, else /image/upload/
-    if full_public_id.lower().endswith('.pdf'):
-        url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
-        resource_type = 'raw'
+    # Clean up the public_id - remove any resource type prefixes
+    clean_public_id = full_public_id
+    if clean_public_id.startswith('raw/') or clean_public_id.startswith('image/'):
+        clean_public_id = clean_public_id.split('/', 1)[1]
+    
+    # Try to determine if it's a PDF or other file type
+    is_pdf = clean_public_id.lower().endswith('.pdf') or 'pdf' in clean_public_id.lower()
+    
+    if is_pdf:
+        # For PDFs, use raw resource type
+        url = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{clean_public_id}"
     else:
-        url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
-        resource_type = 'image'
-
+        # For other files, try auto-detect or image
+        url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{clean_public_id}"
+    
+    app.logger.info(f"Generated Cloudinary URL: {url}")
+    
     debug_requested = request.args.get('debug') == 'true'
     if debug_requested:
         return jsonify({
             "debug": True,
-            "full_public_id": full_public_id,
+            "original_public_id": full_public_id,
+            "clean_public_id": clean_public_id,
             "cloud_name": cloud_name,
-            "resource_type": resource_type,
+            "is_pdf": is_pdf,
             "generated_url": url,
             "message": "This is the URL that would be redirected to"
         })
@@ -1114,44 +1125,54 @@ def get_cloudinary_public_url_flexible(full_public_id):
     return redirect(url)
 
 
-@app.route('/api/cloudinary-url-robust/<path:full_public_id>')
-def get_cloudinary_public_url_robust(full_public_id):
-    """Robust alternative: Try both image and raw resource types for Cloudinary URLs."""
-    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
-    if not cloud_name:
-        return "Cloudinary not configured", 500
-
-    url_image = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
-    url_raw = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
-
-    debug_requested = request.args.get('debug') == 'true'
-    if debug_requested:
-        return jsonify({
-            "debug": True,
-            "full_public_id": full_public_id,
-            "cloud_name": cloud_name,
-            "url_image": url_image,
-            "url_raw": url_raw,
-            "message": "Both image and raw URLs generated. The endpoint will try image first, then raw as fallback."
-        })
-
-    # Try to fetch the image URL first (HEAD request)
+@app.route('/api/file/<path:public_id>')
+@login_required
+def serve_file_proxy(public_id):
+    """Proxy to serve files from Cloudinary with authentication."""
     try:
-        resp = requests.head(url_image, timeout=4)
-        if resp.status_code == 200:
-            return redirect(url_image)
-    except requests.RequestException:
-        pass
+        cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+        if not cloud_name:
+            return "Cloudinary not configured", 500
 
-    # If image fails, try raw
-    try:
-        resp = requests.head(url_raw, timeout=4)
-        if resp.status_code == 200:
-            return redirect(url_raw)
-    except requests.RequestException:
-        pass
+        # Try different resource types
+        urls_to_try = [
+            f"https://res.cloudinary.com/{cloud_name}/raw/upload/{public_id}",
+            f"https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}",
+            f"https://res.cloudinary.com/{cloud_name}/auto/upload/{public_id}"
+        ]
+        
+        for url in urls_to_try:
+            try:
+                app.logger.info(f"Trying to fetch file from: {url}")
+                response = requests.get(url, timeout=10)
+                if response.status_code == 200:
+                    # Create a proper response with the file content
+                    content_type = response.headers.get('Content-Type', 'application/octet-stream')
+                    
+                    # For PDFs, ensure proper content type
+                    if public_id.lower().endswith('.pdf'):
+                        content_type = 'application/pdf'
+                    
+                    from flask import Response
+                    return Response(
+                        response.content,
+                        mimetype=content_type,
+                        headers={
+                            'Content-Disposition': f'inline; filename="{public_id.split("/")[-1]}"',
+                            'Cache-Control': 'public, max-age=3600'
+                        }
+                    )
+            except requests.RequestException as e:
+                app.logger.warning(f"Failed to fetch from {url}: {str(e)}")
+                continue
+        
+        return "File not found", 404
+        
+    except Exception as e:
+        app.logger.error(f"Error serving file {public_id}: {str(e)}")
+        return "Error serving file", 500
 
-    return "File not found in Cloudinary as image or raw: " + full_public_id, 404
+
 @app.route('/', methods=['GET'])
 def home():
     """Serve the frontend index.html as the home page."""
