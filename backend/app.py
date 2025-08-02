@@ -111,24 +111,12 @@ ALLOWED_ORIGINS = [
     "null"  # Para archivos abiertos directamente (file://)
 ]
 
-# Configure CORS with better error handling
-try:
-    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
-except Exception as cors_error:
-    app.logger.warning(f"CORS configuration warning: {cors_error}")
-    # Fallback CORS configuration
-    CORS(app)
-
-@app.after_request
-def add_cors_headers(response):
-    """Ensure CORS headers are added to all responses with better origin handling."""
-    origin = request.headers.get('Origin')
-    if origin in ALLOWED_ORIGINS or not origin:
-        response.headers.add('Access-Control-Allow-Origin', origin or '*')
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+# Configure CORS with proper settings
+CORS(app, 
+     origins=ALLOWED_ORIGINS, 
+     supports_credentials=True,
+     allow_headers=['Content-Type', 'Authorization'],
+     methods=['GET', 'POST', 'OPTIONS'])
 
 # MongoDB configuration
 MONGODB_URI = os.getenv('MONGODB_URI')
