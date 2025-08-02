@@ -39,7 +39,14 @@ app = Flask(__name__)
 # Configure structured logging
 def setup_logging():
     """Configure structured JSON logging."""
-    if not app.debug:  # Only in production
+    # Remove existing handlers to avoid duplicates
+    for handler in app.logger.handlers[:]:
+        app.logger.removeHandler(handler)
+
+    # Configure logging based on environment
+    is_production = os.environ.get('FLASK_ENV') != 'development' and not os.environ.get('DEBUG', 'false').lower() == 'true'
+
+    if is_production:
         handler = logging.StreamHandler()
         formatter = JsonFormatter(
             '%(asctime)s %(name)s %(levelname)s %(message)s'
@@ -47,18 +54,36 @@ def setup_logging():
         handler.setFormatter(formatter)
         app.logger.addHandler(handler)
         app.logger.setLevel(logging.INFO)
-        app.logger.info("Structured logging configured")
+    else:
+        # Simple logging for development
+        logging.basicConfig(level=logging.INFO)
+
+    app.logger.info("Structured logging configured")
 
 # Initialize logging
 setup_logging()
 
-# Configure Rate Limiting
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per hour", "50 per minute"],
-    storage_uri="memory://",  # Use Redis in production: "redis://localhost:6379"
-)
+# Configure Rate Limiting with better error handling
+try:
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["200 per hour", "50 per minute"],
+        storage_uri="memory://",  # Use Redis in production: "redis://localhost:6379"
+        strategy="fixed-window"  # More memory efficient than sliding window
+    )
+except Exception as limiter_error:
+    app.logger.warning(f"Rate limiter initialization warning: {limiter_error}")
+    # Continue without rate limiting if initialization fails
+    limiter = None
+
+def safe_limit(rate_limit, error_message=None):
+    """Safe wrapper for rate limiting that handles when limiter is None."""
+    def decorator(f):
+        if limiter:
+            return limiter.limit(rate_limit, error_message=error_message)(f)
+        return f
+    return decorator
 
 # Security: Force environment variables for production security
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -86,15 +111,23 @@ ALLOWED_ORIGINS = [
     "null"  # Para archivos abiertos directamente (file://)
 ]
 
-# Configure CORS
-CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+# Configure CORS with better error handling
+try:
+    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+except Exception as cors_error:
+    app.logger.warning(f"CORS configuration warning: {cors_error}")
+    # Fallback CORS configuration
+    CORS(app)
 
 @app.after_request
 def add_cors_headers(response):
-    """Ensure CORS headers are added to all responses."""
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    """Ensure CORS headers are added to all responses with better origin handling."""
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS or not origin:
+        response.headers.add('Access-Control-Allow-Origin', origin or '*')
     response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
 # MongoDB configuration
@@ -135,6 +168,8 @@ def create_indexes():
         app.logger.warning("MongoDB index creation failed: %s", str(e))
     except pymongo.errors.PyMongoError as e:
         app.logger.error("MongoDB connection error during index creation: %s", str(e))
+    except (ValueError, TypeError) as e:
+        app.logger.error("Configuration error creating indexes: %s", str(e))
     except Exception as e:
         app.logger.error("Unexpected error creating indexes: %s", str(e))
 
@@ -1077,8 +1112,8 @@ def get_cloudinary_public_url_flexible(full_public_id):
         url = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
         resource_type = 'image'
 
-    debug_mode = request.args.get('debug') == 'true'
-    if debug_mode:
+    debug_requested = request.args.get('debug') == 'true'
+    if debug_requested:
         return jsonify({
             "debug": True,
             "full_public_id": full_public_id,
@@ -1101,8 +1136,8 @@ def get_cloudinary_public_url_robust(full_public_id):
     url_image = f"https://res.cloudinary.com/{cloud_name}/image/upload/{full_public_id}"
     url_raw = f"https://res.cloudinary.com/{cloud_name}/raw/upload/{full_public_id}"
 
-    debug_mode = request.args.get('debug') == 'true'
-    if debug_mode:
+    debug_requested = request.args.get('debug') == 'true'
+    if debug_requested:
         return jsonify({
             "debug": True,
             "full_public_id": full_public_id,
@@ -1200,7 +1235,7 @@ def submit_options():
 
 @app.route('/api/submit', methods=['POST'])
 @cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
-@limiter.limit("5 per minute", error_message="Demasiadas solicitudes. Inténtalo en unos minutos.")
+@safe_limit("5 per minute", error_message="Demasiadas solicitudes. Inténtalo en unos minutos.")
 def submit_application():
     """Submit a job application with form data and file uploads."""
     try:
@@ -1316,7 +1351,7 @@ def submit_application():
 
 
 @app.route('/api/applications', methods=['GET'])
-@limiter.limit("30 per minute")
+@safe_limit("30 per minute")
 def get_applications():
     """Retrieve job applications from the database with pagination."""
     try:
@@ -1920,7 +1955,7 @@ def health_check():
 
 
 @app.route('/admin/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute", error_message="Demasiados intentos de login. Espera unos minutos.")
+@safe_limit("10 per minute", error_message="Demasiados intentos de login. Espera unos minutos.")
 def admin_login():
     """Admin login page."""
     if request.method == 'POST':
@@ -2029,7 +2064,7 @@ def admin_dashboard():
 
 
 @app.route('/api/metrics', methods=['GET'])
-@limiter.limit("10 per minute")
+@safe_limit("10 per minute")
 def get_metrics():
     """Get application metrics for monitoring."""
     try:
@@ -2101,4 +2136,5 @@ def healthz():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
