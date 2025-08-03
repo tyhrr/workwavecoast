@@ -3485,7 +3485,7 @@ def startup_info():
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
     is_production = (
-        os.environ.get('RENDER') or 
+        os.environ.get('RENDER') or
         os.environ.get('FLASK_ENV') == 'production'
     )
 
