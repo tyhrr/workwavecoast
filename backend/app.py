@@ -9,7 +9,9 @@ Author: WorkWave Team
 Version: 2.1.0 - PERFORMANCE & MONITORING UPGRADE
 """
 
-
+import cloudinary
+import cloudinary.uploader
+import cloudinary.utils
 
 import os
 import json
@@ -26,6 +28,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from pymongo import MongoClient
 import pymongo.errors
+from bson import ObjectId
 from dotenv import load_dotenv
 from pythonjsonlogger.json import JsonFormatter
 import cloudinary
@@ -688,6 +691,60 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             background: #ffc947;
             transform: translateY(-1px);
         }
+        .select-all-btn {
+            background: #0088B9;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .select-all-btn:hover {
+            background: #00587A;
+            transform: translateY(-1px);
+        }
+        .delete-selected-btn {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 0.5rem;
+        }
+        .delete-selected-btn:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
+        .delete-selected-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .selection-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,88,122,0.08);
+        }
+        .selection-info {
+            color: #0088B9;
+            font-weight: 500;
+        }
+        .selection-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
         .applications-list {
             background: #fff;
             border-radius: 12px;
@@ -700,12 +757,33 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             padding: 1rem 1.5rem;
             transition: background 0.2s;
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr auto;
+            grid-template-columns: auto 2fr 1fr 1fr auto auto;
             gap: 1rem;
             align-items: center;
         }
         .application-item:last-child { border-bottom: none; }
         .application-item:hover { background: #F7FAFC; }
+        .application-item.selected { background: #E3F2FD; }
+        .application-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #00B4D8;
+        }
+        .delete-btn {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .delete-btn:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
         .applicant-info {
             display: flex;
             flex-direction: column;
@@ -833,6 +911,14 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                 gap: 1rem;
                 text-align: center;
             }
+            .selection-controls {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            .selection-actions {
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -861,8 +947,8 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         <div class="filters-section">
             <div class="filters-row">
                 <div class="filter-group">
-                    <label for="searchFilter">🔍 Buscar por nombre o apellido:</label>
-                    <input type="text" id="searchFilter" placeholder="Ej: Juan, María, García..." onkeyup="filterApplications()">
+                    <label for="searchFilter">🔍 Buscar por nombre, apellido, teléfono o email:</label>
+                    <input type="text" id="searchFilter" placeholder="Ej: Juan, García, +385123456789, juan@email.com..." onkeyup="filterApplications()">
                 </div>
                 <div class="filter-group">
                     <label for="jobFilter">💼 Filtrar por puesto:</label>
@@ -895,6 +981,18 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             </div>
         </div>
 
+        <div class="selection-controls">
+            <div class="selection-info">
+                <span id="selectedCount">0</span> aplicaciones seleccionadas
+            </div>
+            <div class="selection-actions">
+                <button class="select-all-btn" onclick="toggleSelectAll()">Seleccionar Todo</button>
+                <button class="delete-selected-btn" onclick="deleteSelected()" disabled id="deleteSelectedBtn">
+                    🗑️ Eliminar Seleccionadas
+                </button>
+            </div>
+        </div>
+
         <div class="results-count" id="resultsCount">
             Mostrando {{ applications|length }} aplicaciones
         </div>
@@ -902,9 +1000,13 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         <div class="applications-list">
             {% for app in applications %}
             <div class="application-item"
+                 data-id="{{ app.get('_id', '') }}"
                  data-name="{{ (app.get('nombre', '') + ' ' + app.get('apellido', '')).lower() }}"
+                 data-contact="{{ (app.get('email', '') + ' ' + app.get('telefono', '')).lower() }}"
                  data-job="{{ app.get('puesto', '') }}"
                  data-english="{{ app.get('ingles_nivel', '') }}">
+
+                <input type="checkbox" class="application-checkbox" onchange="updateSelection()">
 
                 <div class="applicant-info">
                     <div class="applicant-name">{{ app.get('nombre', '')|e }} {{ app.get('apellido', '')|e }}</div>
@@ -962,6 +1064,10 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     {% endif %}
                 </div>
 
+                <button class="delete-btn" onclick="deleteApplication('{{ app.get('_id', '') }}')" title="Eliminar esta aplicación">
+                    🗑️
+                </button>
+
                 <!-- Detailed file info (expandable) -->
                 <div class="file-details" style="display: none;">
                     {% if app.get('files_parsed') %}
@@ -1009,6 +1115,8 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
     </div>
 
     <script>
+        let selectedApplications = new Set();
+
         function filterApplications() {
             const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
             const jobFilter = document.getElementById('jobFilter').value;
@@ -1019,10 +1127,12 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
 
             applications.forEach(app => {
                 const name = app.getAttribute('data-name');
+                const contact = app.getAttribute('data-contact'); // email + phone
                 const job = app.getAttribute('data-job');
                 const english = app.getAttribute('data-english');
 
-                const matchesSearch = name.includes(searchTerm);
+                // Search in name, email, and phone
+                const matchesSearch = name.includes(searchTerm) || contact.includes(searchTerm);
                 const matchesJob = jobFilter === '' || job === jobFilter;
                 const matchesEnglish = englishFilter === '' || english === englishFilter;
 
@@ -1031,6 +1141,12 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     visibleCount++;
                 } else {
                     app.style.display = 'none';
+                    // Uncheck hidden items
+                    const checkbox = app.querySelector('.application-checkbox');
+                    if (checkbox.checked) {
+                        checkbox.checked = false;
+                        selectedApplications.delete(app.getAttribute('data-id'));
+                    }
                 }
             });
 
@@ -1045,6 +1161,8 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                 resultsCount.textContent = `Mostrando ${visibleCount} aplicaciones`;
                 noResults.style.display = 'none';
             }
+
+            updateSelection();
         }
 
         function clearFilters() {
@@ -1052,6 +1170,201 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             document.getElementById('jobFilter').value = '';
             document.getElementById('englishFilter').value = '';
             filterApplications();
+        }
+
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.application-checkbox');
+            const visibleCheckboxes = Array.from(checkboxes).filter(cb =>
+                cb.closest('.application-item').style.display !== 'none'
+            );
+
+            selectedApplications.clear();
+            let selectedCount = 0;
+
+            checkboxes.forEach(checkbox => {
+                const appItem = checkbox.closest('.application-item');
+                const appId = appItem.getAttribute('data-id');
+
+                if (checkbox.checked) {
+                    selectedApplications.add(appId);
+                    selectedCount++;
+                    appItem.classList.add('selected');
+                } else {
+                    appItem.classList.remove('selected');
+                }
+            });
+
+            document.getElementById('selectedCount').textContent = selectedCount;
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+            deleteBtn.disabled = selectedCount === 0;
+
+            // Update select all button text
+            const selectAllBtn = document.querySelector('.select-all-btn');
+            const allVisible = visibleCheckboxes.length > 0;
+            const allSelected = visibleCheckboxes.every(cb => cb.checked);
+
+            if (allVisible && allSelected) {
+                selectAllBtn.textContent = 'Deseleccionar Todo';
+            } else {
+                selectAllBtn.textContent = 'Seleccionar Todo';
+            }
+        }
+
+        function toggleSelectAll() {
+            const visibleCheckboxes = Array.from(document.querySelectorAll('.application-checkbox'))
+                .filter(cb => cb.closest('.application-item').style.display !== 'none');
+
+            const allSelected = visibleCheckboxes.every(cb => cb.checked);
+
+            visibleCheckboxes.forEach(checkbox => {
+                checkbox.checked = !allSelected;
+            });
+
+            updateSelection();
+        }
+
+        function deleteApplication(applicationId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta aplicación? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            const deleteBtn = event.target;
+            const originalText = deleteBtn.textContent;
+            deleteBtn.textContent = '⏳';
+            deleteBtn.disabled = true;
+
+            fetch(`/api/admin/delete-application/${applicationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the application from the DOM
+                    const appItem = document.querySelector(`[data-id="${applicationId}"]`);
+                    if (appItem) {
+                        appItem.remove();
+                        selectedApplications.delete(applicationId);
+                        updateSelection();
+                        filterApplications(); // Update count
+                    }
+
+                    // Show success message
+                    showMessage('Aplicación eliminada exitosamente', 'success');
+                } else {
+                    showMessage('Error al eliminar la aplicación: ' + data.error, 'error');
+                    deleteBtn.textContent = originalText;
+                    deleteBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error de conexión al eliminar la aplicación', 'error');
+                deleteBtn.textContent = originalText;
+                deleteBtn.disabled = false;
+            });
+        }
+
+        function deleteSelected() {
+            const selectedCount = selectedApplications.size;
+            if (selectedCount === 0) {
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de que quieres eliminar ${selectedCount} aplicaciones seleccionadas? Esta acción no se puede deshacer.`)) {
+                return;
+            }
+
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+            const originalText = deleteBtn.textContent;
+            deleteBtn.textContent = '⏳ Eliminando...';
+            deleteBtn.disabled = true;
+
+            const applicationIds = Array.from(selectedApplications);
+
+            fetch('/api/admin/delete-applications', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    application_ids: applicationIds
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the applications from the DOM
+                    applicationIds.forEach(appId => {
+                        const appItem = document.querySelector(`[data-id="${appId}"]`);
+                        if (appItem) {
+                            appItem.remove();
+                        }
+                    });
+
+                    selectedApplications.clear();
+                    updateSelection();
+                    filterApplications(); // Update count
+
+                    showMessage(`${data.deleted_count} aplicaciones eliminadas exitosamente`, 'success');
+                } else {
+                    showMessage('Error al eliminar las aplicaciones: ' + data.error, 'error');
+                }
+
+                deleteBtn.textContent = originalText;
+                deleteBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error de conexión al eliminar las aplicaciones', 'error');
+                deleteBtn.textContent = originalText;
+                deleteBtn.disabled = false;
+            });
+        }
+
+        function showMessage(message, type) {
+            // Create a simple toast notification
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 6px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                max-width: 300px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transition: all 0.3s ease;
+                transform: translateX(100%);
+            `;
+
+            if (type === 'success') {
+                toast.style.backgroundColor = '#28a745';
+            } else {
+                toast.style.backgroundColor = '#dc3545';
+            }
+
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.style.transform = 'translateX(0)';
+            }, 10);
+
+            // Remove after 5 seconds
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 5000);
         }
 
         function toggleFileDetails(button) {
@@ -1085,6 +1398,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
         // Enhanced file link handling with signed URLs
         document.addEventListener('DOMContentLoaded', function() {
             filterApplications();
+            updateSelection();
 
             // Add click handlers to file links for getting signed URLs
             const fileLinks = document.querySelectorAll('.file-link[href*="/api/admin/cloudinary-proxy/"]');
@@ -2739,6 +3053,126 @@ def admin_logout():
     """Admin logout."""
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
+
+
+@app.route('/api/admin/delete-application/<application_id>', methods=['DELETE'])
+@login_required
+def delete_application(application_id):
+    """Delete a single application by ID."""
+    try:
+        # Validate ObjectId format
+        try:
+            obj_id = ObjectId(application_id)
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": "ID de aplicación inválido",
+                "details": str(e)
+            }), 400
+
+        # Get application before deletion for logging
+        application = candidates.find_one({"_id": obj_id})
+        if not application:
+            return jsonify({
+                "success": False,
+                "error": "Aplicación no encontrada"
+            }), 404
+
+        # Delete the application
+        result = candidates.delete_one({"_id": obj_id})
+
+        if result.deleted_count == 1:
+            app.logger.info("Application deleted by admin", extra={
+                "application_id": application_id,
+                "applicant_name": f"{application.get('nombre', '')} {application.get('apellido', '')}",
+                "applicant_email": application.get('email', ''),
+                "admin_ip": get_remote_address()
+            })
+
+            return jsonify({
+                "success": True,
+                "message": "Aplicación eliminada exitosamente"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "No se pudo eliminar la aplicación"
+            }), 500
+
+    except Exception as e:
+        app.logger.error("Error deleting application", extra={
+            "application_id": application_id,
+            "error": str(e),
+            "admin_ip": get_remote_address()
+        })
+        return jsonify({
+            "success": False,
+            "error": "Error interno del servidor",
+            "details": str(e)
+        }), 500
+
+
+@app.route('/api/admin/delete-applications', methods=['DELETE'])
+@login_required
+def delete_multiple_applications():
+    """Delete multiple applications by IDs."""
+    try:
+        data = request.get_json()
+        if not data or 'application_ids' not in data:
+            return jsonify({
+                "success": False,
+                "error": "Se requiere una lista de IDs de aplicaciones"
+            }), 400
+
+        application_ids = data['application_ids']
+        if not isinstance(application_ids, list) or len(application_ids) == 0:
+            return jsonify({
+                "success": False,
+                "error": "La lista de IDs no puede estar vacía"
+            }), 400
+
+        # Validate and convert to ObjectIds
+        try:
+            obj_ids = [ObjectId(app_id) for app_id in application_ids]
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": "Uno o más IDs de aplicación son inválidos",
+                "details": str(e)
+            }), 400
+
+        # Get applications before deletion for logging
+        applications = list(candidates.find({"_id": {"$in": obj_ids}}))
+        found_count = len(applications)
+
+        # Delete the applications
+        result = candidates.delete_many({"_id": {"$in": obj_ids}})
+
+        app.logger.info("Multiple applications deleted by admin", extra={
+            "requested_count": len(application_ids),
+            "found_count": found_count,
+            "deleted_count": result.deleted_count,
+            "admin_ip": get_remote_address(),
+            "deleted_applications": [f"{app.get('nombre', '')} {app.get('apellido', '')} ({app.get('email', '')})" for app in applications]
+        })
+
+        return jsonify({
+            "success": True,
+            "message": f"Se eliminaron {result.deleted_count} aplicaciones exitosamente",
+            "deleted_count": result.deleted_count,
+            "requested_count": len(application_ids)
+        })
+
+    except Exception as e:
+        app.logger.error("Error deleting multiple applications", extra={
+            "error": str(e),
+            "admin_ip": get_remote_address()
+        })
+        return jsonify({
+            "success": False,
+            "error": "Error interno del servidor",
+            "details": str(e)
+        }), 500
 
 
 @app.route('/admin')
