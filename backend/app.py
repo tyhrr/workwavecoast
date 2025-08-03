@@ -3485,30 +3485,18 @@ def startup_info():
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
     is_production = (
-        os.environ.get('RENDER') or
-        os.environ.get('FLASK_ENV') == 'production' or
-        'gunicorn' in os.environ.get('SERVER_SOFTWARE', '')
+        os.environ.get('RENDER') or 
+        os.environ.get('FLASK_ENV') == 'production'
     )
 
     if is_production:
-        # In production, this script should NOT be run directly
-        # Render should use gunicorn via render.yaml or Procfile
-        app.logger.warning("Production environment detected but app.py was called directly!")
-        app.logger.warning("This should use 'gunicorn app:app' instead of 'python app.py'")
-
-        # Exit immediately to prevent Flask dev server in production
-        import sys
-        sys.exit(1)
+        # In production, don't run Flask dev server
+        # Let Gunicorn handle the WSGI app via Procfile
+        print("Production environment detected. App ready for Gunicorn.")
+        # Don't exit with error, just do nothing so Gunicorn can import the app
     else:
         # Development mode - use Flask development server
-        app.logger.info("Development environment detected, starting Flask dev server...")
+        print("Development environment detected, starting Flask dev server...")
         port = int(os.environ.get('PORT', 5000))
-        app.run(host='0.0.0.0', port=port, debug=True)
-
-# For production: app object is available for Gunicorn to import
-# Gunicorn will use: gunicorn app:app
-        port = int(os.environ.get('PORT', 5000))
-        debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
-
-        app.logger.info("Development environment detected, starting Flask dev server...")
+        debug_mode = os.environ.get('DEBUG', 'true').lower() == 'true'
         app.run(host='0.0.0.0', port=port, debug=debug_mode)

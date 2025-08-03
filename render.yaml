@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "./start.sh"
+    # Let Render use the Procfile for startCommand
     envVars:
       - key: FLASK_ENV
         value: production
