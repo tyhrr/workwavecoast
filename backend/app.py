@@ -157,12 +157,18 @@ def create_indexes():
         candidates.create_index([("status", 1)])
 
         # Text index for searching names, emails, and phones
-        candidates.create_index([
-            ("nombre", "text"),
-            ("apellido", "text"),
-            ("email", "text"),
-            ("telefono", "text")
-        ])
+        try:
+            candidates.create_index([
+                ("nombre", "text"),
+                ("apellido", "text"),
+                ("email", "text"),
+                ("telefono", "text")
+            ], name="search_text_idx")
+        except pymongo.errors.OperationFailure as e:
+            if "IndexOptionsConflict" in str(e) or "equivalent index already exists" in str(e):
+                app.logger.info("Text search index already exists with different options, skipping creation")
+            else:
+                raise e
 
         # Index for phone number searches
         candidates.create_index([("telefono", 1)])
@@ -3478,21 +3484,29 @@ def startup_info():
 
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
-    is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
+    is_production = (
+        os.environ.get('RENDER') or
+        os.environ.get('FLASK_ENV') == 'production' or
+        'gunicorn' in os.environ.get('SERVER_SOFTWARE', '')
+    )
 
     if is_production:
-        # In production, let Render's configuration handle Gunicorn
-        # This prevents the "double free or corruption" error from programmatic startup
-        app.logger.info("Production environment detected - Render will handle server startup via Procfile/render.yaml")
+        # In production, this script should NOT be run directly
+        # Render should use gunicorn via render.yaml or Procfile
+        app.logger.warning("Production environment detected but app.py was called directly!")
+        app.logger.warning("This should use 'gunicorn app:app' instead of 'python app.py'")
 
-        # Don't start Flask server when running under Gunicorn
-        # Gunicorn will import this app and handle the WSGI interface
-        pass
+        # Exit immediately to prevent Flask dev server in production
+        import sys
+        sys.exit(1)
     else:
         # Development mode - use Flask development server
         app.logger.info("Development environment detected, starting Flask dev server...")
         port = int(os.environ.get('PORT', 5000))
         app.run(host='0.0.0.0', port=port, debug=True)
+
+# For production: app object is available for Gunicorn to import
+# Gunicorn will use: gunicorn app:app
         port = int(os.environ.get('PORT', 5000))
         debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
 

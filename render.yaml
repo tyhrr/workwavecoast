@@ -2,12 +2,14 @@ services:
   - type: web
     name: workwave-coast-backend
     env: python
+    region: oregon
+    plan: free
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && gunicorn --config gunicorn_config.py app:app"
+    startCommand: "./start.sh"
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DEBUG
         value: false
-      - key: PORT
-        value: 10000
+      - key: RENDER
+        value: true
