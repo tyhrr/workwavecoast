@@ -3484,19 +3484,18 @@ def startup_info():
 
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
-    is_production = (
-        os.environ.get('RENDER') or
-        os.environ.get('FLASK_ENV') == 'production'
-    )
-
+    is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
+    
     if is_production:
-        # In production, don't run Flask dev server
-        # Let Gunicorn handle the WSGI app via Procfile
-        print("Production environment detected. App ready for Gunicorn.")
-        # Don't exit with error, just do nothing so Gunicorn can import the app
+        # In production, run Flask as fallback since Render is calling python app.py directly
+        # This prevents "Application exited early" error
+        app.logger.info("Production environment detected - Render will handle server startup via Procfile/render.yaml")
+        app.logger.warning("Running Flask server directly - this should only happen if Procfile/render.yaml failed")
+        port = int(os.environ.get('PORT', 10000))
+        app.run(host='0.0.0.0', port=port, debug=False)
     else:
         # Development mode - use Flask development server
-        print("Development environment detected, starting Flask dev server...")
+        app.logger.info("Development environment detected, starting Flask dev server...")
         port = int(os.environ.get('PORT', 5000))
-        debug_mode = os.environ.get('DEBUG', 'true').lower() == 'true'
+        debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
         app.run(host='0.0.0.0', port=port, debug=debug_mode)
