@@ -3485,7 +3485,7 @@ def startup_info():
 if __name__ == '__main__':
     # Check if we're in production (Render environment)
     is_production = os.environ.get('RENDER') or os.environ.get('FLASK_ENV') == 'production'
-    
+
     if is_production:
         # In production, run Flask as fallback since Render is calling python app.py directly
         # This prevents "Application exited early" error
