@@ -141,8 +141,8 @@ def create_indexes():
         # Index for sorting applications by date (most common query)
         candidates.create_index([("created_at", -1)])
 
-        # Index for email uniqueness and quick lookups
-        candidates.create_index([("email", 1)], unique=False)  # Allow duplicates for now
+        # Unique index for email to prevent duplicates
+        candidates.create_index([("email", 1)], unique=True)
 
         # Compound index for filtering by position and date
         candidates.create_index([("puesto", 1), ("created_at", -1)])
@@ -150,12 +150,19 @@ def create_indexes():
         # Index for status filtering
         candidates.create_index([("status", 1)])
 
-        # Text index for searching names
+        # Text index for searching names, emails, and phones
         candidates.create_index([
             ("nombre", "text"),
             ("apellido", "text"),
-            ("email", "text")
+            ("email", "text"),
+            ("telefono", "text")
         ])
+
+        # Index for phone number searches
+        candidates.create_index([("telefono", 1)])
+
+        # Index for English level filtering
+        candidates.create_index([("ingles_nivel", 1)])
 
         app.logger.info("MongoDB indexes created successfully")
 
@@ -196,15 +203,63 @@ ALLOWED_EXTENSIONS = {
     'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
 }
 
-REQUIRED_FIELDS = ['nombre', 'email', 'telefono']
+REQUIRED_FIELDS = ['nombre', 'email', 'telefono', 'ingles_nivel']
 
 # Input validation patterns
 VALIDATION_PATTERNS = {
     'email': r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    'telefono': r'^[\+]?[0-9\s\-\(\)]{7,20}$',
+    'telefono': r'^\+\d{1,4}\s\d{7,15}$',  # Formato: +código país número
     'nombre': r'^[a-zA-ZÀ-ÿ\s]{1,50}$',
     'apellido': r'^[a-zA-ZÀ-ÿ\s]{1,50}$'
 }
+
+# Phone validation patterns by country code
+PHONE_PATTERNS = {
+    '+385': r'^\+385\s[0-9]{8,9}$',  # Croacia
+    '+34': r'^\+34\s[0-9]{9}$',      # España
+    '+54': r'^\+54\s[0-9]{10,11}$',  # Argentina
+    '+52': r'^\+52\s[0-9]{10}$',     # México
+    '+57': r'^\+57\s[0-9]{10}$',     # Colombia
+    '+56': r'^\+56\s[0-9]{9}$',      # Chile
+    '+51': r'^\+51\s[0-9]{9}$',      # Perú
+    '+58': r'^\+58\s[0-9]{10}$',     # Venezuela
+    '+598': r'^\+598\s[0-9]{8}$',    # Uruguay
+    '+595': r'^\+595\s[0-9]{9}$',    # Paraguay
+    '+591': r'^\+591\s[0-9]{8}$',    # Bolivia
+    '+593': r'^\+593\s[0-9]{9}$',    # Ecuador
+    '+39': r'^\+39\s[0-9]{9,10}$',   # Italia
+    '+33': r'^\+33\s[0-9]{10}$',     # Francia
+    '+49': r'^\+49\s[0-9]{10,11}$',  # Alemania
+    '+44': r'^\+44\s[0-9]{10,11}$',  # Reino Unido
+    '+1': r'^\+1\s[0-9]{10}$',       # Estados Unidos
+    '+55': r'^\+55\s[0-9]{10,11}$',  # Brasil
+    '+351': r'^\+351\s[0-9]{9}$'     # Portugal
+}
+
+def validate_phone_number(phone):
+    """Validate phone number format according to country code."""
+    if not phone or not isinstance(phone, str):
+        return False, "Número de teléfono requerido"
+
+    phone = phone.strip()
+
+    # Check if phone matches the general international format
+    if not re.match(r'^\+\d{1,4}\s\d{7,15}$', phone):
+        return False, "Formato de teléfono inválido. Use el formato: +código país número"
+
+    # Extract country code
+    parts = phone.split(' ', 1)
+    if len(parts) != 2:
+        return False, "Formato de teléfono inválido"
+
+    country_code = parts[0]
+
+    # Check country-specific pattern if available
+    if country_code in PHONE_PATTERNS:
+        if not re.match(PHONE_PATTERNS[country_code], phone):
+            return False, f"Formato incorrecto para {country_code}. Verifica el número de dígitos."
+
+    return True, "Válido"
 
 
 def validate_application_data(data):
@@ -214,19 +269,33 @@ def validate_application_data(data):
     # Check required fields
     for field in REQUIRED_FIELDS:
         if not data.get(field) or not data.get(field).strip():
-            errors.append(f"Campo requerido faltante o vacío: {field}")
+            field_names = {
+                'nombre': 'Nombre',
+                'email': 'Email',
+                'telefono': 'Teléfono',
+                'ingles_nivel': 'Nivel de inglés'
+            }
+            errors.append(f"Campo requerido faltante: {field_names.get(field, field)}")
 
-    # Validate field formats
+    # Special validation for phone number
+    if 'telefono' in data and data['telefono']:
+        is_valid, message = validate_phone_number(data['telefono'])
+        if not is_valid:
+            errors.append(f"Teléfono: {message}")
+
+    # Validate field formats (excluding phone which has special validation)
     for field, pattern in VALIDATION_PATTERNS.items():
+        if field == 'telefono':  # Skip phone, already validated above
+            continue
         if field in data and data[field]:
             if not re.match(pattern, data[field].strip()):
                 errors.append(f"Formato inválido para {field}")
 
     # Validate field lengths to prevent DoS
     max_lengths = {
-        'nombre': 50, 'apellido': 50, 'email': 100, 'telefono': 20,
+        'nombre': 50, 'apellido': 50, 'email': 100, 'telefono': 25,
         'nacionalidad': 50, 'puesto': 50, 'experiencia': 500,
-        'motivacion': 1000, 'disponibilidad': 200
+        'motivacion': 1000, 'disponibilidad': 200, 'puestos_adicionales': 200
     }
 
     for field, max_length in max_lengths.items():
@@ -234,6 +303,19 @@ def validate_application_data(data):
             errors.append(f"Campo {field} excede la longitud máxima de {max_length} caracteres")
 
     return len(errors) == 0, errors
+
+
+def check_duplicate_application(email):
+    """Check if an application with this email already exists."""
+    try:
+        existing = candidates.find_one({"email": email.lower().strip()})
+        return existing is not None
+    except Exception as e:
+        app.logger.error("Error checking duplicate application", extra={
+            "email": email,
+            "error": str(e)
+        })
+        return False  # If we can't check, allow the application
 
 
 def login_required(f):
@@ -2000,6 +2082,18 @@ def submit_application():
             "files_received": list(request.files.keys())
         })
 
+        # Check for duplicate application first
+        email = data.get('email', '').strip().lower()
+        if email and check_duplicate_application(email):
+            app.logger.warning("Duplicate application attempt", extra={
+                "email": email,
+                "remote_addr": get_remote_address()
+            })
+            return jsonify({
+                "success": False,
+                "message": "Ya existe una aplicación con este email. Cada persona solo puede aplicar una vez."
+            }), 409
+
         # Validate input data
         is_valid, validation_errors = validate_application_data(data)
         if not is_valid:
@@ -2009,18 +2103,22 @@ def submit_application():
             })
             return jsonify({
                 "success": False,
-                "message": "Datos de formulario inválidos",
+                "message": "Datos de formulario inválidos: " + "; ".join(validation_errors),
                 "errors": validation_errors
             }), 400
 
         # Add timestamp and status
-        data['created_at'] =data['created_at'] = datetime.now(timezone.utc).isoformat()
+        data['created_at'] = datetime.now(timezone.utc).isoformat()
         data['status'] = 'pending'
 
-        # Sanitize data (strip whitespace)
+        # Sanitize data (strip whitespace and normalize email)
         for key, value in data.items():
             if isinstance(value, str):
                 data[key] = value.strip()
+
+        # Normalize email to lowercase for consistency
+        if 'email' in data:
+            data['email'] = data['email'].lower()
 
         # Handle file uploads
         files = request.files
@@ -2054,12 +2152,16 @@ def submit_application():
             "application_id": str(result.inserted_id),
             "applicant_name": f"{data.get('nombre', '')} {data.get('apellido', '')}",
             "position": data.get('puesto', ''),
-            "files_count": len(file_urls)
+            "additional_positions": data.get('puestos_adicionales', ''),
+            "files_count": len(file_urls),
+            "email": data.get('email', ''),
+            "phone": data.get('telefono', ''),
+            "english_level": data.get('ingles_nivel', '')
         })
 
         return jsonify({
             "success": True,
-            "message": "Application submitted successfully",
+            "message": "Postulación enviada exitosamente",
             "application_id": str(result.inserted_id)
         }), 201
 

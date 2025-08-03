@@ -456,6 +456,88 @@ footer {
 }
 
 /* =================== ACCESSIBILITY & TOUCH IMPROVEMENTS =================== */
+
+/* Phone input group styling */
+.phone-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.phone-input-group select {
+    flex: 0 0 auto;
+    min-width: 120px;
+}
+
+.phone-input-group input {
+    flex: 1;
+}
+
+/* Checkbox group styling */
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #1A2A36;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.checkbox-label:hover {
+    background-color: #F7FAFC;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 0.5rem;
+    width: 16px;
+    height: 16px;
+    accent-color: #00B4D8;
+    cursor: pointer;
+}
+
+/* Phone format hint styling */
+.phone-format {
+    font-style: italic;
+    min-height: 1.2em;
+}
+
+/* Error message styling for phone validation */
+.phone-error {
+    color: #ff6b6b !important;
+    font-weight: 500;
+}
+
+.phone-success {
+    color: #28a745 !important;
+    font-weight: 500;
+}
+
+/* Responsive adjustments for new elements */
+@media (max-width: 768px) {
+    .phone-input-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .phone-input-group select,
+    .phone-input-group input {
+        width: 100%;
+    }
+
+    .checkbox-group {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (hover: none) and (pointer: coarse) {
     /* Touch devices */
     input[type="text"],
@@ -468,6 +550,11 @@ footer {
     .submit-btn {
         min-height: 48px;
         padding: 1rem 2rem;
+    }
+
+    .checkbox-label {
+        min-height: 44px;
+        padding: 0.75rem;
     }
 }
 
