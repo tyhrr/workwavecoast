@@ -9,16 +9,16 @@ import os
 BIND = f"0.0.0.0:{os.environ.get('PORT', 5000)}"
 BACKLOG = 2048
 
-# Worker processes
-WORKERS = int(os.environ.get('WEB_CONCURRENCY', 2))
+# Worker processes - Reduce for memory optimization
+WORKERS = int(os.environ.get('WEB_CONCURRENCY', 1))  # Reduced from 2 to 1
 WORKER_CLASS = "sync"
-WORKER_CONNECTIONS = 1000
+WORKER_CONNECTIONS = 500  # Reduced from 1000
 TIMEOUT = 30
 KEEPALIVE = 2
 
 # Restart workers after this many requests, to help limit memory leaks
-MAX_REQUESTS = 1000
-MAX_REQUESTS_JITTER = 100
+MAX_REQUESTS = 500  # Reduced from 1000
+MAX_REQUESTS_JITTER = 50  # Reduced from 100
 
 # Logging
 ERRORLOG = '-'

@@ -142,7 +142,13 @@ def create_indexes():
         candidates.create_index([("created_at", -1)])
 
         # Unique index for email to prevent duplicates
-        candidates.create_index([("email", 1)], unique=True)
+        try:
+            candidates.create_index([("email", 1)], unique=True, name="email_unique_idx")
+        except pymongo.errors.OperationFailure as e:
+            if "IndexKeySpecsConflict" in str(e) or "already exists" in str(e):
+                app.logger.info("Email unique index already exists, skipping creation")
+            else:
+                raise e
 
         # Compound index for filtering by position and date
         candidates.create_index([("puesto", 1), ("created_at", -1)])
@@ -3476,16 +3482,17 @@ if __name__ == '__main__':
 
     if is_production:
         # In production, let Render's configuration handle Gunicorn
-        # This prevents the "double free or corruption" error from programmatic Gunicorn startup
+        # This prevents the "double free or corruption" error from programmatic startup
         app.logger.info("Production environment detected - Render will handle server startup via Procfile/render.yaml")
 
-        # If this script is called directly in production, just run Flask as fallback
-        # But normally Render should use Procfile or render.yaml instead
-        port = int(os.environ.get('PORT', 10000))
-        app.logger.warning("Running Flask server directly - this should only happen if Procfile/render.yaml failed")
-        app.run(host='0.0.0.0', port=port, debug=False)
+        # Don't start Flask server when running under Gunicorn
+        # Gunicorn will import this app and handle the WSGI interface
+        pass
     else:
         # Development mode - use Flask development server
+        app.logger.info("Development environment detected, starting Flask dev server...")
+        port = int(os.environ.get('PORT', 5000))
+        app.run(host='0.0.0.0', port=port, debug=True)
         port = int(os.environ.get('PORT', 5000))
         debug_mode = os.environ.get('FLASK_ENV') == 'development' or os.environ.get('DEBUG', 'false').lower() == 'true'
 
