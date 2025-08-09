@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
     <title>WorkWave Coast - Trabaja en la Costa Croata</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/frontend/styles.css">
-    <link rel="icon" type="image/png" href="/frontend/img/workwave2.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="img/workwave2.png">
 </head>
 <body>
     <header class="hero">
-        <img src="/frontend/img/workwave2.png" alt="WorkWave Coast Logo" class="logo">
+        <img src="img/workwave2.png" alt="WorkWave Coast Logo" class="logo">
         <h1>Trabaja en la Costa Croata</h1>
         <p class="hero-text">
             Únete a nuestro equipo y vive la experiencia de trabajar en uno de los destinos más hermosos de Europa. Disfruta de un ambiente profesional, oportunidades de crecimiento y calidad de vida junto al mar Adriático.
@@ -144,15 +144,15 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="espanol_nivel">Español</label>
+                    <label for="espanol_nivel">Nivel de Español</label>
                     <select id="espanol_nivel" name="espanol_nivel">
                         <option value="">Selecciona nivel</option>
-                        <option value="A1">A1</option>
-                        <option value="A2">A2</option>
-                        <option value="B1">B1</option>
-                        <option value="B2">B2</option>
-                        <option value="C1">C1</option>
-                        <option value="C2">C2</option>
+                        <option value="A1">A1 - Básico</option>
+                        <option value="A2">A2 - Pre-intermedio</option>
+                        <option value="B1">B1 - Intermedio</option>
+                        <option value="B2">B2 - Intermedio-Alto</option>
+                        <option value="C1">C1 - Avanzado</option>
+                        <option value="C2">C2 - Competencia</option>
                         <option value="Nativo">Nativo</option>
                     </select>
                 </div>
@@ -161,14 +161,19 @@
                     <input type="text" id="otro_idioma" name="otro_idioma" placeholder="Escribe el idioma">
                     <select id="otro_idioma_nivel" name="otro_idioma_nivel" style="margin-top:0.5rem;">
                         <option value="">Selecciona nivel</option>
-                        <option value="A1">A1</option>
-                        <option value="A2">A2</option>
-                        <option value="B1">B1</option>
-                        <option value="B2">B2</option>
-                        <option value="C1">C1</option>
-                        <option value="C2">C2</option>
+                        <option value="A1">A1 - Básico</option>
+                        <option value="A2">A2 - Pre-intermedio</option>
+                        <option value="B1">B1 - Intermedio</option>
+                        <option value="B2">B2 - Intermedio-Alto</option>
+                        <option value="C1">C1 - Avanzado</option>
+                        <option value="C2">C2 - Competencia</option>
                         <option value="Nativo">Nativo</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="experiencia">Experiencia laboral <span>*</span></label>
+                    <textarea id="experiencia" name="experiencia" required maxlength="500" rows="4" placeholder="Describe tu experiencia laboral relevante, especialmente en turismo, hostelería o trabajos estacionales..."></textarea>
+                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">Máximo 500 caracteres</small>
                 </div>
                 <div class="form-group">
                     <label for="cv">Currículum Vitae (PDF) <span>*</span></label>
@@ -191,6 +196,6 @@
     <footer>
         <p>&copy; 2025 WorkWave Coast. Todos los derechos reservados.</p>
     </footer>
-    <script src="/frontend/script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
