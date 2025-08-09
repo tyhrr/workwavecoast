@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=3.0">
     <title>WorkWave Coast - Trabaja en la Costa Croata</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="frontend/styles.css">
-    <link rel="icon" type="image/png" href="frontend/img/workwave2.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="img/workwave2.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.18/libphonenumber-js.min.js"></script>
 </head>
 <body>
     <header class="hero">
-        <img src="frontend/img/workwave2.png" alt="WorkWave Coast Logo" class="logo">
+        <img src="img/workwave2.png" alt="WorkWave Coast Logo" class="logo">
         <h1>Trabaja en la Costa Croata</h1>
         <p class="hero-text">
             Únete a nuestro equipo y vive la experiencia de trabajar en uno de los destinos más hermosos de Europa. Disfruta de un ambiente profesional, oportunidades de crecimiento y calidad de vida junto al mar Adriático.
@@ -56,34 +57,16 @@
                 </div>
                 <div class="form-group">
                     <label for="email">Email <span>*</span></label>
-                    <input type="email" id="email" name="email" required maxlength="60">
+                    <input type="email" id="email" name="email" required maxlength="100">
                 </div>
                 <div class="form-group">
                     <label for="telefono">Teléfono <span>*</span></label>
                     <div class="phone-input-group">
                         <select id="pais_codigo" name="pais_codigo" required style="width: 30%; margin-right: 0.5rem;">
-                            <option value="">País</option>
-                            <option value="+385">🇭🇷 +385 (Croacia)</option>
-                            <option value="+34">🇪🇸 +34 (España)</option>
-                            <option value="+54">🇦🇷 +54 (Argentina)</option>
-                            <option value="+52">🇲🇽 +52 (México)</option>
-                            <option value="+57">🇨🇴 +57 (Colombia)</option>
-                            <option value="+56">🇨🇱 +56 (Chile)</option>
-                            <option value="+51">🇵🇪 +51 (Perú)</option>
-                            <option value="+58">🇻🇪 +58 (Venezuela)</option>
-                            <option value="+598">🇺🇾 +598 (Uruguay)</option>
-                            <option value="+595">🇵🇾 +595 (Paraguay)</option>
-                            <option value="+591">🇧🇴 +591 (Bolivia)</option>
-                            <option value="+593">🇪🇨 +593 (Ecuador)</option>
-                            <option value="+39">🇮🇹 +39 (Italia)</option>
-                            <option value="+33">🇫🇷 +33 (Francia)</option>
-                            <option value="+49">🇩🇪 +49 (Alemania)</option>
-                            <option value="+44">🇬🇧 +44 (Reino Unido)</option>
-                            <option value="+1">🇺🇸 +1 (Estados Unidos)</option>
-                            <option value="+55">🇧🇷 +55 (Brasil)</option>
-                            <option value="+351">🇵🇹 +351 (Portugal)</option>
+                            <option value="">Selecciona país...</option>
+                            <!-- Las opciones se cargarán dinámicamente con JavaScript -->
                         </select>
-                        <input type="tel" id="telefono" name="telefono" required maxlength="15" placeholder="Número de teléfono" style="width: 68%;">
+                        <input type="tel" id="telefono" name="telefono" required maxlength="20" placeholder="Número de teléfono" style="width: 68%;">
                     </div>
                     <small class="phone-format" id="phoneFormat" style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;"></small>
                 </div>
@@ -158,7 +141,7 @@
                 </div>
                 <div class="form-group">
                     <label for="otro_idioma">Otro idioma</label>
-                    <input type="text" id="otro_idioma" name="otro_idioma" placeholder="Escribe el idioma">
+                    <input type="text" id="otro_idioma" name="otro_idioma" placeholder="Escribe el idioma" maxlength="50">
                     <select id="otro_idioma_nivel" name="otro_idioma_nivel" style="margin-top:0.5rem;">
                         <option value="">Selecciona nivel</option>
                         <option value="A1">A1 - Básico</option>

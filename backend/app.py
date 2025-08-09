@@ -215,7 +215,7 @@ ALLOWED_EXTENSIONS = {
     'documentos': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
 }
 
-REQUIRED_FIELDS = ['nombre', 'email', 'telefono', 'ingles_nivel']
+REQUIRED_FIELDS = ['nombre', 'apellido', 'nacionalidad', 'email', 'telefono', 'puesto', 'ingles_nivel', 'experiencia']
 
 # Input validation patterns
 VALIDATION_PATTERNS = {
@@ -283,9 +283,13 @@ def validate_application_data(data):
         if not data.get(field) or not data.get(field).strip():
             field_names = {
                 'nombre': 'Nombre',
+                'apellido': 'Apellido',
+                'nacionalidad': 'Nacionalidad',
                 'email': 'Email',
                 'telefono': 'Teléfono',
-                'ingles_nivel': 'Nivel de inglés'
+                'puesto': 'Puesto',
+                'ingles_nivel': 'Nivel de inglés',
+                'experiencia': 'Experiencia laboral'
             }
             errors.append(f"Campo requerido faltante: {field_names.get(field, field)}")
 
@@ -307,7 +311,9 @@ def validate_application_data(data):
     max_lengths = {
         'nombre': 50, 'apellido': 50, 'email': 100, 'telefono': 25,
         'nacionalidad': 50, 'puesto': 50, 'experiencia': 500,
-        'motivacion': 1000, 'disponibilidad': 200, 'puestos_adicionales': 200
+        'motivacion': 1000, 'disponibilidad': 200, 'puestos_adicionales': 200,
+        'espanol_nivel': 20, 'otro_idioma': 50, 'otro_idioma_nivel': 20,
+        'ingles_nivel': 20
     }
 
     for field, max_length in max_lengths.items():
@@ -2131,6 +2137,16 @@ def submit_application():
         # Normalize email to lowercase for consistency
         if 'email' in data:
             data['email'] = data['email'].lower()
+
+        # Validate required file uploads
+        if 'cv' not in request.files or not request.files['cv'].filename:
+            app.logger.warning("Missing required CV file", extra={
+                "remote_addr": get_remote_address()
+            })
+            return jsonify({
+                "success": False,
+                "message": "El archivo CV es requerido."
+            }), 400
 
         # Handle file uploads
         files = request.files
