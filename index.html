@@ -22,16 +22,24 @@
             <h2>Formulario de Postulación</h2>
             <form id="applicationForm" enctype="multipart/form-data" autocomplete="on">
                 <div class="form-group">
-                    <label for="nombre">Nombre /s <span>*</span></label>
-                    <input type="text" id="nombre" name="nombre" required maxlength="50">
+                    <label for="nombre">Nombre /s <span aria-hidden="true">*</span></label>
+                    <input type="text" id="nombre" name="nombre" required maxlength="50" 
+                           aria-describedby="nombre-error" aria-invalid="false"
+                           aria-label="Nombre completo, campo requerido">
+                    <div id="nombre-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
-                    <label for="apellido">Apellido /s <span>*</span></label>
-                    <input type="text" id="apellido" name="apellido" required maxlength="50">
+                    <label for="apellido">Apellido /s <span aria-hidden="true">*</span></label>
+                    <input type="text" id="apellido" name="apellido" required maxlength="50"
+                           aria-describedby="apellido-error" aria-invalid="false"
+                           aria-label="Apellido completo, campo requerido">
+                    <div id="apellido-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
-                    <label for="nacionalidad">Nacionalidad <span>*</span></label>
-                    <select id="nacionalidad" name="nacionalidad" required>
+                    <label for="nacionalidad">Nacionalidad <span aria-hidden="true">*</span></label>
+                    <select id="nacionalidad" name="nacionalidad" required
+                            aria-describedby="nacionalidad-error" aria-invalid="false"
+                            aria-label="Selecciona tu nacionalidad, campo requerido">
                         <option value="">Selecciona tu nacionalidad</option>
                         <option value="Croacia">Croacia</option>
                         <option value="España">España</option>
@@ -54,25 +62,41 @@
                         <option value="Portugal">Portugal</option>
                         <option value="Otra">Otra</option>
                     </select>
+                    <div id="nacionalidad-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
-                    <label for="email">Email <span>*</span></label>
-                    <input type="email" id="email" name="email" required maxlength="100">
+                    <label for="email">Email <span aria-hidden="true">*</span></label>
+                    <input type="email" id="email" name="email" required maxlength="100"
+                           aria-describedby="email-error" aria-invalid="false"
+                           aria-label="Dirección de correo electrónico, campo requerido">
+                    <div id="email-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
-                    <label for="telefono">Teléfono <span>*</span></label>
-                    <div class="phone-input-group">
-                        <select id="pais_codigo" name="pais_codigo" required style="width: 30%; margin-right: 0.5rem;">
-                            <option value="">Selecciona país...</option>
+                    <label for="telefono">Teléfono <span aria-hidden="true">*</span></label>
+                    <div class="phone-input-group" role="group" aria-labelledby="telefono-label" aria-describedby="telefono-help telefono-error">
+                        <label id="telefono-label" class="sr-only">Seleccionar código de país y número de teléfono</label>
+                        <select id="pais_codigo" name="pais_codigo" required 
+                                class="country-select"
+                                aria-label="Código de país para teléfono"
+                                aria-describedby="telefono-help">
+                            <option value="">País...</option>
                             <!-- Las opciones se cargarán dinámicamente con JavaScript -->
                         </select>
-                        <input type="tel" id="telefono" name="telefono" required maxlength="20" placeholder="Número de teléfono" style="width: 68%;">
+                        <input type="tel" id="telefono" name="telefono" required maxlength="20" 
+                               placeholder="Número de teléfono" 
+                               class="phone-number-input"
+                               aria-label="Número de teléfono sin código de país"
+                               aria-describedby="telefono-help telefono-error"
+                               aria-invalid="false">
                     </div>
-                    <small class="phone-format" id="phoneFormat" style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;"></small>
+                    <small class="phone-format" id="telefono-help" aria-live="polite">Selecciona tu país y escribe tu número de teléfono</small>
+                    <div id="telefono-error" class="field-error" role="alert" aria-live="assertive"></div>
                 </div>
                 <div class="form-group">
-                    <label for="puesto">Puesto principal al que aplica <span>*</span></label>
-                    <select id="puesto" name="puesto" required>
+                    <label for="puesto">Puesto principal al que aplica <span aria-hidden="true">*</span></label>
+                    <select id="puesto" name="puesto" required
+                            aria-describedby="puesto-error" aria-invalid="false"
+                            aria-label="Selecciona el puesto principal al que deseas aplicar, campo requerido">
                         <option value="">Selecciona un puesto</option>
                         <option value="Camarero/a">Camarero/a</option>
                         <option value="Cocinero/a">Cocinero/a</option>
@@ -83,13 +107,15 @@
                         <option value="Mantenimiento">Mantenimiento</option>
                         <option value="Otro">Otro</option>
                     </select>
+                    <div id="puesto-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
                     <label for="puesto_adicional">Puestos adicionales de interés (opcional)</label>
                     <small style="color: #666; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
                         Selecciona otros puestos a los que también te gustaría aplicar
                     </small>
-                    <div class="checkbox-group">
+                    <div class="checkbox-group" role="group" aria-labelledby="puesto_adicional" aria-describedby="puesto_adicional-help">
+                        <div id="puesto_adicional-help" class="sr-only">Selecciona uno o más puestos adicionales de tu interés</div>
                         <label class="checkbox-label">
                             <input type="checkbox" name="puesto_adicional" value="Camarero/a"> Camarero/a
                         </label>
@@ -114,8 +140,10 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="ingles_nivel">Nivel de Inglés <span>*</span></label>
-                    <select id="ingles_nivel" name="ingles_nivel" required>
+                    <label for="ingles_nivel">Nivel de Inglés <span aria-hidden="true">*</span></label>
+                    <select id="ingles_nivel" name="ingles_nivel" required
+                            aria-describedby="ingles_nivel-error" aria-invalid="false"
+                            aria-label="Selecciona tu nivel de inglés según el Marco Común Europeo, campo requerido">
                         <option value="">Selecciona nivel</option>
                         <option value="A1">A1 - Básico</option>
                         <option value="A2">A2 - Pre-intermedio</option>
@@ -125,6 +153,7 @@
                         <option value="C2">C2 - Competencia</option>
                         <option value="Nativo">Nativo</option>
                     </select>
+                    <div id="ingles_nivel-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
                     <label for="espanol_nivel">Nivel de Español</label>
@@ -154,25 +183,40 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="experiencia">Experiencia laboral <span>*</span></label>
-                    <textarea id="experiencia" name="experiencia" required maxlength="500" rows="4" placeholder="Describe tu experiencia laboral relevante, especialmente en turismo, hostelería o trabajos estacionales..."></textarea>
-                    <small style="color: #666; font-size: 0.8rem; margin-top: 0.25rem; display: block;">Máximo 500 caracteres</small>
+                    <label for="experiencia">Experiencia laboral <span aria-hidden="true">*</span></label>
+                    <textarea id="experiencia" name="experiencia" required maxlength="500" rows="4" 
+                              placeholder="Describe tu experiencia laboral relevante, especialmente en turismo, hostelería o trabajos estacionales..."
+                              aria-describedby="experiencia-error experiencia-count" aria-invalid="false"
+                              aria-label="Describe tu experiencia laboral relevante, máximo 500 caracteres, campo requerido"></textarea>
+                    <div class="textarea-footer">
+                        <small id="experiencia-count" class="char-counter" aria-live="polite">0 / 500 caracteres</small>
+                        <div id="experiencia-error" class="field-error" role="alert" aria-live="polite"></div>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="cv">Currículum Vitae (PDF) <span>*</span></label>
+                    <label for="cv">Currículum Vitae (PDF) <span aria-hidden="true">*</span></label>
                     <small class="file-info">Máximo 1MB - Recomendado: 1 hoja</small>
-                    <input type="file" id="cv" name="cv" accept="application/pdf" required data-max-size="1048576">
+                    <input type="file" id="cv" name="cv" accept="application/pdf" required data-max-size="1048576"
+                           aria-describedby="cv-error cv-help" aria-invalid="false"
+                           aria-label="Subir currículum vitae en formato PDF, máximo 1MB, campo requerido">
+                    <div id="cv-help" class="sr-only">Sube tu currículum en formato PDF. El archivo no debe exceder 1MB de tamaño.</div>
+                    <div id="cv-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
                 <div class="form-group">
                     <label for="documentos">Documentos adicionales</label>
                     <small class="file-info">Máximo 2MB - PDF o imágenes</small>
-                    <input type="file" id="documentos" name="documentos" accept="application/pdf,image/*" data-max-size="2097152">
+                    <input type="file" id="documentos" name="documentos" accept="application/pdf,image/*" data-max-size="2097152"
+                           aria-describedby="documentos-help documentos-error" aria-invalid="false"
+                           aria-label="Subir documentos adicionales en PDF o imágenes, máximo 2MB, campo opcional">
+                    <div id="documentos-help" class="sr-only">Puedes subir documentos adicionales como certificados o referencias en formato PDF o imágenes. El archivo no debe exceder 2MB.</div>
+                    <div id="documentos-error" class="field-error" role="alert" aria-live="polite"></div>
                 </div>
-                <button type="submit" class="submit-btn">
+                <button type="submit" class="submit-btn" aria-describedby="submit-help">
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" class="icon-send" aria-hidden="true"><path d="M4 10a1 1 0 011-1h7.586l-3.293-3.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 11-1.414-1.414L12.586 11H5a1 1 0 01-1-1z"/></svg>
-                    Enviar Postulación
+                    <span>Enviar Postulación</span>
                 </button>
-                <div id="message" class="message"></div>
+                <div id="submit-help" class="sr-only">Al enviar, tu postulación será procesada y recibirás una confirmación</div>
+                <div id="message" class="message" role="status" aria-live="polite"></div>
             </form>
         </section>
     </main>

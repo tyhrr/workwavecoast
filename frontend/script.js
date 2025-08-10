@@ -652,3 +652,272 @@ document.getElementById('applicationForm').addEventListener('submit', async func
         messageDiv.style.color = '#ff6b6b';
     }
 });
+
+// =================== VALIDACIÓN EN TIEMPO REAL Y ACCESIBILIDAD ===================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Agregar validación en tiempo real a todos los campos
+    addRealTimeValidation();
+    
+    // Agregar contador de caracteres para textarea
+    addCharacterCounter();
+    
+    // Mejorar accesibilidad del formulario
+    enhanceFormAccessibility();
+});
+
+function addRealTimeValidation() {
+    const fields = [
+        { id: 'nombre', type: 'text', required: true },
+        { id: 'apellido', type: 'text', required: true },
+        { id: 'nacionalidad', type: 'select', required: true },
+        { id: 'email', type: 'email', required: true },
+        { id: 'telefono', type: 'tel', required: true },
+        { id: 'puesto', type: 'select', required: true },
+        { id: 'ingles_nivel', type: 'select', required: true },
+        { id: 'experiencia', type: 'textarea', required: true },
+        { id: 'cv', type: 'file', required: true },
+        { id: 'documentos', type: 'file', required: false }
+    ];
+
+    fields.forEach(field => {
+        const element = document.getElementById(field.id);
+        const errorDiv = document.getElementById(`${field.id}-error`);
+        
+        if (!element || !errorDiv) return;
+
+        // Agregar listeners para validación
+        element.addEventListener('blur', () => validateField(field, element, errorDiv));
+        element.addEventListener('input', () => {
+            // Validación inmediata para algunos campos
+            if (field.type === 'email' || field.type === 'text') {
+                setTimeout(() => validateField(field, element, errorDiv), 300);
+            }
+        });
+
+        // Validación especial para archivos
+        if (field.type === 'file') {
+            element.addEventListener('change', () => validateFile(field, element, errorDiv));
+        }
+    });
+
+    // Agregar validación especial para el selector de país
+    const countrySelect = document.getElementById('pais_codigo');
+    const phoneInput = document.getElementById('telefono');
+    const phoneErrorDiv = document.getElementById('telefono-error');
+    
+    if (countrySelect && phoneInput) {
+        countrySelect.addEventListener('change', () => {
+            // Revalidar el teléfono cuando cambie el país
+            if (phoneInput.value.trim()) {
+                setTimeout(() => {
+                    const phoneField = { id: 'telefono', type: 'tel', required: true };
+                    validateField(phoneField, phoneInput, phoneErrorDiv);
+                }, 100);
+            }
+        });
+    }
+}
+
+function validateField(field, element, errorDiv) {
+    let isValid = true;
+    let errorMessage = '';
+
+    // Validar campo requerido
+    if (field.required) {
+        const value = element.value.trim();
+        if (!value) {
+            isValid = false;
+            errorMessage = `${getFieldDisplayName(field.id)} es requerido`;
+        }
+    }
+
+    // Validaciones específicas por tipo
+    if (isValid && element.value.trim()) {
+        switch (field.type) {
+            case 'email':
+                if (!isValidEmail(element.value)) {
+                    isValid = false;
+                    errorMessage = 'Formato de email inválido';
+                }
+                break;
+            case 'text':
+                if (element.value.length > element.maxLength) {
+                    isValid = false;
+                    errorMessage = `Máximo ${element.maxLength} caracteres`;
+                }
+                break;
+            case 'tel':
+                if (field.id === 'telefono') {
+                    const countrySelect = document.getElementById('pais_codigo');
+                    const countryCode = countrySelect ? countrySelect.value : '';
+                    if (countryCode && element.value.trim()) {
+                        if (!validatePhoneFormat(element.value, countryCode)) {
+                            isValid = false;
+                            errorMessage = 'Formato de teléfono inválido para el país seleccionado';
+                        }
+                    } else if (!countryCode && element.value.trim()) {
+                        isValid = false;
+                        errorMessage = 'Selecciona primero el código de país';
+                    }
+                }
+                break;
+            case 'textarea':
+                if (element.value.length > element.maxLength) {
+                    isValid = false;
+                    errorMessage = `Máximo ${element.maxLength} caracteres`;
+                }
+                break;
+        }
+    }
+
+    // Actualizar estado visual
+    updateFieldValidationState(element, errorDiv, isValid, errorMessage);
+    return isValid;
+}
+
+function validateFile(field, element, errorDiv) {
+    const file = element.files[0];
+    let isValid = true;
+    let errorMessage = '';
+
+    if (field.required && !file) {
+        isValid = false;
+        errorMessage = `${getFieldDisplayName(field.id)} es requerido`;
+    } else if (file) {
+        // Validar tamaño
+        const maxSize = parseInt(element.dataset.maxSize) || 5242880; // 5MB default
+        if (file.size > maxSize) {
+            isValid = false;
+            const maxSizeMB = Math.round(maxSize / 1024 / 1024);
+            errorMessage = `El archivo excede el tamaño máximo de ${maxSizeMB}MB`;
+        }
+
+        // Validar tipo de archivo
+        const acceptedTypes = element.accept.split(',').map(t => t.trim());
+        const fileType = file.type;
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!acceptedTypes.some(type => 
+            fileType.includes(type.replace('*', '')) || 
+            type === fileExtension
+        )) {
+            isValid = false;
+            errorMessage = 'Tipo de archivo no permitido';
+        }
+    }
+
+    updateFieldValidationState(element, errorDiv, isValid, errorMessage);
+    return isValid;
+}
+
+function updateFieldValidationState(element, errorDiv, isValid, errorMessage) {
+    // Actualizar aria-invalid
+    element.setAttribute('aria-invalid', !isValid);
+
+    // Mostrar/ocultar mensaje de error
+    if (errorDiv) {
+        errorDiv.textContent = errorMessage;
+        errorDiv.style.display = errorMessage ? 'block' : 'none';
+    }
+
+    // Actualizar clases CSS para estilos visuales
+    if (isValid) {
+        element.classList.remove('field-invalid');
+        element.classList.add('field-valid');
+    } else {
+        element.classList.remove('field-valid');
+        element.classList.add('field-invalid');
+    }
+}
+
+function addCharacterCounter() {
+    const textarea = document.getElementById('experiencia');
+    const counter = document.getElementById('experiencia-count');
+    
+    if (!textarea || !counter) return;
+
+    function updateCounter() {
+        const current = textarea.value.length;
+        const max = textarea.maxLength;
+        const remaining = max - current;
+        
+        counter.textContent = `${current} / ${max} caracteres`;
+        
+        // Cambiar color según proximidad al límite
+        counter.className = 'char-counter';
+        if (remaining < 50) {
+            counter.classList.add('error');
+        } else if (remaining < 100) {
+            counter.classList.add('warning');
+        }
+    }
+
+    textarea.addEventListener('input', updateCounter);
+    updateCounter(); // Inicializar
+}
+
+function enhanceFormAccessibility() {
+    // Mejorar el feedback del teléfono
+    const phoneInput = document.getElementById('telefono');
+    const phoneHelp = document.getElementById('telefono-help');
+    const countrySelect = document.getElementById('pais_codigo');
+    
+    if (phoneInput && phoneHelp && countrySelect) {
+        function updatePhoneHelp() {
+            const selectedCountry = countrySelect.value;
+            if (selectedCountry) {
+                const countryName = countrySelect.options[countrySelect.selectedIndex].text;
+                phoneHelp.textContent = `Escribe tu número de teléfono para ${countryName}`;
+            } else {
+                phoneHelp.textContent = 'Selecciona tu país y escribe tu número de teléfono';
+            }
+        }
+        
+        countrySelect.addEventListener('change', updatePhoneHelp);
+    }
+
+    // Mejorar feedback del formulario
+    const form = document.getElementById('applicationForm');
+    const submitBtn = form.querySelector('.submit-btn');
+    
+    form.addEventListener('submit', function(e) {
+        // Cambiar estado del botón durante el envío
+        if (submitBtn) {
+            const originalText = submitBtn.querySelector('span').textContent;
+            submitBtn.querySelector('span').textContent = 'Enviando...';
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-disabled', 'true');
+            
+            // Restaurar estado si hay error (se maneja en el catch del submit)
+            setTimeout(() => {
+                if (submitBtn.disabled) {
+                    submitBtn.querySelector('span').textContent = originalText;
+                    submitBtn.disabled = false;
+                    submitBtn.setAttribute('aria-disabled', 'false');
+                }
+            }, 10000); // Timeout de 10 segundos
+        }
+    });
+}
+
+function getFieldDisplayName(fieldId) {
+    const displayNames = {
+        'nombre': 'Nombre',
+        'apellido': 'Apellido',
+        'nacionalidad': 'Nacionalidad',
+        'email': 'Email',
+        'telefono': 'Teléfono',
+        'puesto': 'Puesto',
+        'ingles_nivel': 'Nivel de inglés',
+        'experiencia': 'Experiencia laboral',
+        'cv': 'Currículum Vitae',
+        'documentos': 'Documentos adicionales'
+    };
+    return displayNames[fieldId] || fieldId;
+}
+
+function isValidEmail(email) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+}

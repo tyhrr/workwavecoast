@@ -154,6 +154,137 @@ input[type="file"] {
     opacity: 0.8;
 }
 
+/* =================== ACCESSIBILITY IMPROVEMENTS =================== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Field validation states */
+.field-error {
+    color: #dc3545;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    font-weight: 500;
+    min-height: 1.2em;
+    transition: opacity 0.2s ease;
+}
+
+.field-error:empty {
+    opacity: 0;
+}
+
+/* Visual validation indicators */
+input:invalid,
+select:invalid,
+textarea:invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.1);
+}
+
+input:valid:not(:placeholder-shown),
+select:valid:not([value=""]),
+textarea:valid:not(:placeholder-shown) {
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.1);
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+}
+
+input[aria-invalid="false"]:not(:placeholder-shown),
+select[aria-invalid="false"]:not([value=""]),
+textarea[aria-invalid="false"]:not(:placeholder-shown) {
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+}
+
+/* Enhanced contrast for required field indicators */
+.form-group label span[aria-hidden="true"] {
+    color: #e74c3c;
+    font-weight: 700;
+    font-size: 1.1em;
+    margin-left: 0.2rem;
+}
+
+/* =================== PHONE INPUT IMPROVEMENTS =================== */
+.phone-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.country-select {
+    flex: 0 0 auto;
+    min-width: 120px;
+    max-width: 150px;
+    font-size: 0.9rem;
+}
+
+.phone-number-input {
+    flex: 1 1 auto;
+    min-width: 150px;
+}
+
+.phone-format {
+    color: #666;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    display: block;
+    font-style: italic;
+}
+
+/* =================== TEXTAREA IMPROVEMENTS =================== */
+.textarea-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.char-counter {
+    color: #666;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.char-counter.warning {
+    color: #f39c12;
+}
+
+.char-counter.error {
+    color: #dc3545;
+}
+
+/* =================== IMPROVED CONTRAST =================== */
+.form-group label {
+    color: #00587A;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #6c757d;
+    opacity: 0.8;
+}
+
+/* =================== RESPONSIVE IMPROVEMENTS =================== */
+
 .submit-btn {
     background: linear-gradient(90deg, #0088B9 0%, #00B4D8 100%);
     color: #fff;
@@ -581,5 +712,67 @@ footer {
     input[type="tel"]:focus,
     select:focus {
         transition: none;
+    }
+}
+
+/* =================== ENHANCED RESPONSIVE PHONE INPUT =================== */
+@media (max-width: 480px) {
+    .phone-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .country-select {
+        min-width: unset;
+        max-width: unset;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .phone-number-input {
+        min-width: unset;
+        width: 100%;
+    }
+}
+
+@media (max-width: 320px) {
+    .phone-input-group {
+        gap: 0.25rem;
+    }
+    
+    .country-select {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.6rem;
+    }
+}
+
+/* =================== IMPROVED FOCUS MANAGEMENT =================== */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+    outline: 3px solid #00B4D8;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .form-group label {
+        color: #000;
+        font-weight: 700;
+    }
+    
+    input, select, textarea {
+        border-width: 2px;
+        border-color: #000;
+    }
+    
+    .submit-btn {
+        border: 2px solid #000;
+    }
+    
+    .field-error {
+        font-weight: 700;
+        text-decoration: underline;
     }
 }
