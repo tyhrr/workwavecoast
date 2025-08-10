@@ -1,15 +1,219 @@
-// WorkWave Coast - Frontend
+// WorkWave Coast - Frontend v2.0
 // Compatible con backend Flask, MongoDB Atlas y Cloudinary
-// Usa fetch() y FormData para enviar datos y archivos
+// Optimizado para rendimiento y manejo de errores
 
-// Cargar países automáticamente al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    loadCountryOptions();
-});
+// =================== SISTEMA DE INICIALIZACIÓN ===================
+class WorkWaveApp {
+    constructor() {
+        this.isInitialized = false;
+        this.retryConfig = {
+            maxRetries: 3,
+            baseDelay: 1000,
+            maxDelay: 5000
+        };
+        this.eventListeners = new Map(); // Prevenir duplicados
+
+        // Detectar si el documento ya está listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        } else {
+            // DOM ya está listo
+            this.init();
+        }
+    }
+
+    async init() {
+        if (this.isInitialized) return; // Prevenir inicialización múltiple
+
+        try {
+            console.log('🚀 Inicializando WorkWave Coast App...');
+
+            // Cargar recursos críticos
+            await this.loadCriticalResources();
+
+            // Configurar funcionalidades principales
+            this.setupCountrySelector();
+            this.setupFormValidation();
+            this.setupFileValidation();
+            this.setupFormSubmission();
+            this.setupAccessibilityFeatures();
+
+            // Optimizaciones de rendimiento
+            this.setupPerformanceOptimizations();
+
+            this.isInitialized = true;
+            console.log('✅ WorkWave Coast App inicializada correctamente');
+
+        } catch (error) {
+            console.error('❌ Error inicializando la aplicación:', error);
+            this.handleInitializationError(error);
+        }
+    }
+
+    async loadCriticalResources() {
+        // Verificar que libphonenumber esté disponible
+        if (typeof libphonenumber === 'undefined') {
+            console.warn('⚠️ libphonenumber no está disponible, usando validación básica');
+        }
+    }
+
+    addEventListenerOnce(element, event, handler, options = {}) {
+        const key = `${element}_${event}`;
+        if (this.eventListeners.has(key)) {
+            // Ya existe, remover el anterior
+            const oldHandler = this.eventListeners.get(key);
+            element.removeEventListener(event, oldHandler, options);
+        }
+
+        element.addEventListener(event, handler, options);
+        this.eventListeners.set(key, handler);
+    }
+
+    // Implementación de retry con backoff exponencial
+    async retryWithBackoff(fn, context = 'operación') {
+        let lastError;
+
+        for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+            try {
+                return await fn();
+            } catch (error) {
+                lastError = error;
+
+                if (attempt === this.retryConfig.maxRetries) {
+                    console.error(`❌ ${context} falló después de ${this.retryConfig.maxRetries} intentos:`, error);
+                    break;
+                }
+
+                const delay = Math.min(
+                    this.retryConfig.baseDelay * Math.pow(2, attempt),
+                    this.retryConfig.maxDelay
+                );
+
+                console.warn(`⚠️ ${context} falló (intento ${attempt + 1}), reintentando en ${delay}ms...`);
+                await this.sleep(delay);
+            }
+        }
+
+        throw lastError;
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    handleInitializationError(error) {
+        // Mostrar mensaje de error amigable al usuario
+        const messageDiv = document.getElementById('message');
+        if (messageDiv) {
+            messageDiv.innerHTML = `
+                <div style="color: #dc3545; text-align: center; padding: 1rem; background: #f8d7da; border-radius: 6px; margin: 1rem 0;">
+                    ⚠️ Hubo un problema cargando la aplicación.
+                    <button onclick="location.reload()" style="margin-left: 0.5rem; padding: 0.3rem 0.8rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Recargar página
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    setupCountrySelector() {
+        this.loadCountryOptions();
+    }
+
+    setupFormValidation() {
+        this.addRealTimeValidation();
+        this.addCharacterCounter();
+    }
+
+    setupFileValidation() {
+        this.setupFileInputValidation();
+    }
+
+    setupFormSubmission() {
+        this.setupFormSubmissionHandler();
+    }
+
+    setupAccessibilityFeatures() {
+        this.enhanceFormAccessibility();
+    }
+
+    setupPerformanceOptimizations() {
+        // Lazy loading de imágenes
+        this.setupLazyLoading();
+
+        // Prefetch de recursos críticos
+        this.setupResourcePrefetch();
+
+        // Optimización de eventos
+        this.setupEventOptimization();
+    }
+
+    setupLazyLoading() {
+        // Implementar Intersection Observer para lazy loading
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+            });
+
+            // Observar imágenes con data-src
+            document.querySelectorAll('img[data-src]').forEach(img => {
+                imageObserver.observe(img);
+            });
+        }
+    }
+
+    setupResourcePrefetch() {
+        // Prefetch del backend API si es necesario
+        const apiUrl = this.getApiBaseUrl();
+        if (apiUrl) {
+            // Hacer un prefetch DNS del dominio de la API
+            const link = document.createElement('link');
+            link.rel = 'dns-prefetch';
+            link.href = apiUrl;
+            document.head.appendChild(link);
+        }
+    }
+
+    setupEventOptimization() {
+        // Debounce para eventos que pueden dispararse frecuentemente
+        this.debounceMap = new Map();
+    }
+
+    debounce(func, wait, immediate) {
+        return function executedFunction(...args) {
+            const later = () => {
+                if (!immediate) func(...args);
+            };
+            const callNow = immediate && !this.debounceMap.has(func);
+            clearTimeout(this.debounceMap.get(func));
+            this.debounceMap.set(func, setTimeout(later, wait));
+            if (callNow) func(...args);
+        };
+    }
+}
+
+// Crear instancia global de la aplicación
+const workWaveApp = new WorkWaveApp();
+
+// =================== MÉTODOS DE LA CLASE WORKWAVE ===================
 
 // Función para cargar opciones de países dinámicamente
-function loadCountryOptions() {
+WorkWaveApp.prototype.loadCountryOptions = function() {
     const select = document.getElementById('pais_codigo');
+
+    if (!select) {
+        console.warn('⚠️ Elemento select de país no encontrado');
+        return;
+    }
 
     try {
         // Obtener lista de países usando libphonenumber
@@ -153,17 +357,19 @@ function loadCountryOptions() {
             select.appendChild(option);
         });
 
-        console.log(`Cargados ${countries.length} países exitosamente`);
+        console.log(`✅ Cargados ${countries.length} países exitosamente`);
 
     } catch (error) {
-        console.error('Error cargando países:', error);
+        console.error('❌ Error cargando países:', error);
         // Fallback: cargar algunos países básicos si libphonenumber falla
-        loadFallbackCountries(select);
+        this.loadFallbackCountries(select);
     }
-}
+};
 
 // Función de respaldo si libphonenumber no está disponible
-function loadFallbackCountries(select) {
+WorkWaveApp.prototype.loadFallbackCountries = function(select) {
+    console.warn('🔄 Cargando países de respaldo...');
+
     const fallbackCountries = [
         { code: '+385', name: 'Croacia', flag: '🇭🇷' },
         { code: '+34', name: 'España', flag: '🇪🇸' },
@@ -186,21 +392,37 @@ function loadFallbackCountries(select) {
         select.appendChild(option);
     });
 
-    console.log('Cargados países de respaldo');
-}
+    console.log('✅ Cargados países de respaldo');
+};
 
-function getApiBaseUrl() {
-    // Detección automática de entorno
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return 'http://localhost:5000/api/submit';
-    }
-    // Producción con dominio personalizado
-    if (window.location.hostname === 'workwavecoast.online') {
+WorkWaveApp.prototype.getApiBaseUrl = function() {
+    // Detección automática de entorno con manejo de errores
+    try {
+        const hostname = window.location.hostname;
+
+        // Desarrollo local
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'http://localhost:5000/api/submit';
+        }
+
+        // Producción con dominio personalizado
+        if (hostname === 'workwavecoast.online' || hostname === 'www.workwavecoast.online') {
+            return 'https://workwavecoast.onrender.com/api/submit';
+        }
+
+        // GitHub Pages u otros hostings
+        if (hostname.includes('github.io')) {
+            return 'https://workwavecoast.onrender.com/api/submit';
+        }
+
+        // Fallback para producción
+        return 'https://workwavecoast.onrender.com/api/submit';
+
+    } catch (error) {
+        console.error('❌ Error detectando entorno:', error);
         return 'https://workwavecoast.onrender.com/api/submit';
     }
-    // Fallback para GitHub Pages
-    return 'https://workwavecoast.onrender.com/api/submit';
-}
+};
 
 // Función para formatear teléfono según el país
 function getPhoneFormat(countryCode) {
@@ -527,29 +749,40 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-document.getElementById('applicationForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = e.target;
+// =================== ENVÍO DE FORMULARIO CON RETRY AUTOMÁTICO ===================
+WorkWaveApp.prototype.setupFormSubmissionHandler = function() {
+    const form = document.getElementById('applicationForm');
     const messageDiv = document.getElementById('message');
-    messageDiv.textContent = '';
-    messageDiv.style.color = '#00587A';
 
+    if (!form || !messageDiv) {
+        console.warn('⚠️ Formulario o mensaje div no encontrado');
+        return;
+    }
+
+    this.addEventListenerOnce(form, 'submit', async (e) => {
+        e.preventDefault();
+
+        // Mostrar estado de carga
+        this.showFormLoadingState(true, messageDiv);
+
+        try {
+            await this.retryWithBackoff(
+                () => this.submitFormData(form, messageDiv),
+                'envío del formulario'
+            );
+        } catch (error) {
+            this.handleFormSubmissionError(error, messageDiv);
+        } finally {
+            this.showFormLoadingState(false, messageDiv);
+        }
+    });
+};
+
+WorkWaveApp.prototype.submitFormData = async function(form, messageDiv) {
     // Validación básica de campos requeridos
-    const requiredFields = ['nombre', 'apellido', 'nacionalidad', 'email', 'pais_codigo', 'telefono', 'puesto', 'ingles_nivel', 'experiencia', 'cv'];
-    for (const field of requiredFields) {
-        const el = form.elements[field];
-        if (!el.value && el.type !== 'file') {
-            messageDiv.textContent = '⚠️ Completa todos los campos obligatorios.';
-            messageDiv.style.color = '#ff6b6b';
-            el.focus();
-            return;
-        }
-        if (el.type === 'file' && el.files.length === 0) {
-            messageDiv.textContent = '⚠️ Adjunta tu CV en formato PDF.';
-            messageDiv.style.color = '#ff6b6b';
-            el.focus();
-            return;
-        }
+    const validationResult = this.validateRequiredFields(form);
+    if (!validationResult.valid) {
+        throw new Error(validationResult.message);
     }
 
     // Validación específica de teléfono
@@ -651,22 +884,10 @@ document.getElementById('applicationForm').addEventListener('submit', async func
         messageDiv.textContent = '❌ Error de conexión con el servidor. Verifica tu conexión e inténtalo de nuevo.';
         messageDiv.style.color = '#ff6b6b';
     }
-});
-
 // =================== VALIDACIÓN EN TIEMPO REAL Y ACCESIBILIDAD ===================
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Agregar validación en tiempo real a todos los campos
-    addRealTimeValidation();
-    
-    // Agregar contador de caracteres para textarea
-    addCharacterCounter();
-    
-    // Mejorar accesibilidad del formulario
-    enhanceFormAccessibility();
-});
-
-function addRealTimeValidation() {
+// Funciones refactorizadas como métodos de la clase
+WorkWaveApp.prototype.addRealTimeValidation = function() {
     const fields = [
         { id: 'nombre', type: 'text', required: true },
         { id: 'apellido', type: 'text', required: true },
@@ -683,7 +904,7 @@ function addRealTimeValidation() {
     fields.forEach(field => {
         const element = document.getElementById(field.id);
         const errorDiv = document.getElementById(`${field.id}-error`);
-        
+
         if (!element || !errorDiv) return;
 
         // Agregar listeners para validación
@@ -705,7 +926,7 @@ function addRealTimeValidation() {
     const countrySelect = document.getElementById('pais_codigo');
     const phoneInput = document.getElementById('telefono');
     const phoneErrorDiv = document.getElementById('telefono-error');
-    
+
     if (countrySelect && phoneInput) {
         countrySelect.addEventListener('change', () => {
             // Revalidar el teléfono cuando cambie el país
@@ -797,9 +1018,9 @@ function validateFile(field, element, errorDiv) {
         const acceptedTypes = element.accept.split(',').map(t => t.trim());
         const fileType = file.type;
         const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-        
-        if (!acceptedTypes.some(type => 
-            fileType.includes(type.replace('*', '')) || 
+
+        if (!acceptedTypes.some(type =>
+            fileType.includes(type.replace('*', '')) ||
             type === fileExtension
         )) {
             isValid = false;
@@ -834,16 +1055,16 @@ function updateFieldValidationState(element, errorDiv, isValid, errorMessage) {
 function addCharacterCounter() {
     const textarea = document.getElementById('experiencia');
     const counter = document.getElementById('experiencia-count');
-    
+
     if (!textarea || !counter) return;
 
     function updateCounter() {
         const current = textarea.value.length;
         const max = textarea.maxLength;
         const remaining = max - current;
-        
+
         counter.textContent = `${current} / ${max} caracteres`;
-        
+
         // Cambiar color según proximidad al límite
         counter.className = 'char-counter';
         if (remaining < 50) {
@@ -862,7 +1083,7 @@ function enhanceFormAccessibility() {
     const phoneInput = document.getElementById('telefono');
     const phoneHelp = document.getElementById('telefono-help');
     const countrySelect = document.getElementById('pais_codigo');
-    
+
     if (phoneInput && phoneHelp && countrySelect) {
         function updatePhoneHelp() {
             const selectedCountry = countrySelect.value;
@@ -873,14 +1094,14 @@ function enhanceFormAccessibility() {
                 phoneHelp.textContent = 'Selecciona tu país y escribe tu número de teléfono';
             }
         }
-        
+
         countrySelect.addEventListener('change', updatePhoneHelp);
     }
 
     // Mejorar feedback del formulario
     const form = document.getElementById('applicationForm');
     const submitBtn = form.querySelector('.submit-btn');
-    
+
     form.addEventListener('submit', function(e) {
         // Cambiar estado del botón durante el envío
         if (submitBtn) {
@@ -888,7 +1109,7 @@ function enhanceFormAccessibility() {
             submitBtn.querySelector('span').textContent = 'Enviando...';
             submitBtn.disabled = true;
             submitBtn.setAttribute('aria-disabled', 'true');
-            
+
             // Restaurar estado si hay error (se maneja en el catch del submit)
             setTimeout(() => {
                 if (submitBtn.disabled) {
