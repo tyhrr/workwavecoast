@@ -87,6 +87,12 @@ main {
     margin: 2rem 0;
     position: relative;
     z-index: 1;
+    box-sizing: border-box;
+    overflow: hidden; /* Prevenir overflow */
+}
+
+.form-section * {
+    box-sizing: border-box; /* Asegurar que todos los elementos respeten el box-sizing */
 }
 
 .form-section h2 {
@@ -223,19 +229,24 @@ textarea[aria-invalid="false"]:not(:placeholder-shown) {
     display: flex;
     gap: 0.5rem;
     align-items: flex-start;
-    flex-wrap: wrap;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden; /* Prevenir desbordamiento */
 }
 
 .country-select {
-    flex: 0 0 auto;
-    min-width: 120px;
-    max-width: 150px;
+    flex: 0 0 35%; /* Usar porcentaje en lugar de px fijo */
+    min-width: 100px;
+    max-width: 140px;
     font-size: 0.9rem;
+    box-sizing: border-box;
 }
 
 .phone-number-input {
-    flex: 1 1 auto;
-    min-width: 150px;
+    flex: 1 1 60%; /* Tomar el espacio restante */
+    min-width: 0; /* Permite que se contraiga */
+    width: auto;
+    box-sizing: border-box;
 }
 
 .phone-format {
@@ -588,22 +599,6 @@ footer {
 
 /* =================== ACCESSIBILITY & TOUCH IMPROVEMENTS =================== */
 
-/* Phone input group styling */
-.phone-input-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.phone-input-group select {
-    flex: 0 0 auto;
-    min-width: 120px;
-}
-
-.phone-input-group input {
-    flex: 1;
-}
-
 /* Checkbox group styling */
 .checkbox-group {
     display: grid;
@@ -655,13 +650,20 @@ footer {
 /* Responsive adjustments for new elements */
 @media (max-width: 768px) {
     .phone-input-group {
-        flex-direction: column;
-        gap: 0.5rem;
+        flex-direction: row; /* Mantener horizontal en tablet */
+        gap: 0.4rem; /* Reducir gap ligeramente */
     }
 
-    .phone-input-group select,
-    .phone-input-group input {
-        width: 100%;
+    .country-select {
+        flex: 0 0 32%;
+        min-width: 90px;
+        max-width: 120px;
+        font-size: 0.85rem;
+    }
+
+    .phone-number-input {
+        flex: 1 1 65%;
+        min-width: 0;
     }
 
     .checkbox-group {
@@ -720,16 +722,19 @@ footer {
     .phone-input-group {
         flex-direction: column;
         align-items: stretch;
+        gap: 0.5rem;
     }
-    
+
     .country-select {
+        flex: 1 1 auto;
         min-width: unset;
         max-width: unset;
         width: 100%;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0;
     }
-    
+
     .phone-number-input {
+        flex: 1 1 auto;
         min-width: unset;
         width: 100%;
     }
@@ -737,12 +742,17 @@ footer {
 
 @media (max-width: 320px) {
     .phone-input-group {
-        gap: 0.25rem;
+        gap: 0.4rem;
     }
-    
+
     .country-select {
         font-size: 0.85rem;
-        padding: 0.5rem 0.6rem;
+        padding: 0.55rem 0.7rem;
+    }
+
+    .phone-number-input {
+        font-size: 0.9rem;
+        padding: 0.55rem 0.7rem;
     }
 }
 
@@ -761,16 +771,16 @@ button:focus-visible {
         color: #000;
         font-weight: 700;
     }
-    
+
     input, select, textarea {
         border-width: 2px;
         border-color: #000;
     }
-    
+
     .submit-btn {
         border: 2px solid #000;
     }
-    
+
     .field-error {
         font-weight: 700;
         text-decoration: underline;
