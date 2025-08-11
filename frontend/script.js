@@ -16,28 +16,28 @@ function sleep(ms) {
 
 async function retryWithBackoff(fn, context = 'operación') {
     let lastError;
-    
+
     for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
         try {
             return await fn();
         } catch (error) {
             lastError = error;
-            
+
             if (attempt === retryConfig.maxRetries) {
                 console.error(`❌ ${context} falló después de ${retryConfig.maxRetries} intentos:`, error);
                 break;
             }
-            
+
             const delay = Math.min(
                 retryConfig.baseDelay * Math.pow(2, attempt),
                 retryConfig.maxDelay
             );
-            
+
             console.warn(`⚠️ ${context} falló (intento ${attempt + 1}), reintentando en ${delay}ms...`);
             await sleep(delay);
         }
     }
-    
+
     throw lastError;
 }
 
@@ -45,21 +45,21 @@ async function retryWithBackoff(fn, context = 'operación') {
 function getApiBaseUrl() {
     try {
         const hostname = window.location.hostname;
-        
+
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
             return 'http://localhost:5000/api/submit';
         }
-        
+
         if (hostname === 'workwavecoast.online' || hostname === 'www.workwavecoast.online') {
             return 'https://workwavecoast.onrender.com/api/submit';
         }
-        
+
         if (hostname.includes('github.io')) {
             return 'https://workwavecoast.onrender.com/api/submit';
         }
-        
+
         return 'https://workwavecoast.onrender.com/api/submit';
-        
+
     } catch (error) {
         console.error('❌ Error detectando entorno:', error);
         return 'https://workwavecoast.onrender.com/api/submit';
@@ -67,119 +67,57 @@ function getApiBaseUrl() {
 }
 
 // =================== CARGA DE PAÍSES ===================
-function loadCountryOptions() {
+async function loadCountryOptions() {
     const select = document.getElementById('pais_codigo');
-    
     if (!select) {
         console.warn('⚠️ Elemento select de país no encontrado');
         return;
     }
 
     try {
-        const countries = [];
-        
-        // Lista de países comunes con sus códigos ISO
-        const commonCountries = [
-            'HR', 'ES', 'AR', 'MX', 'CO', 'CL', 'PE', 'VE', 'UY', 'PY', 'BO', 'EC',
-            'IT', 'FR', 'DE', 'GB', 'US', 'BR', 'PT', 'NL', 'BE', 'CH', 'AT', 'DK',
-            'SE', 'NO', 'FI', 'PL', 'CZ', 'SK', 'SI', 'HU', 'RO', 'BG', 'GR', 'TR'
-        ];
+        await retryWithBackoff(async () => {
+            const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,idd,flags');
+            if (!response.ok) {
+                throw new Error(`Error en la respuesta de la API: ${response.statusText}`);
+            }
+            const data = await response.json();
 
-        const countryNames = {
-            'HR': 'Croacia', 'ES': 'España', 'AR': 'Argentina', 'MX': 'México', 'CO': 'Colombia',
-            'CL': 'Chile', 'PE': 'Perú', 'VE': 'Venezuela', 'UY': 'Uruguay', 'PY': 'Paraguay',
-            'BO': 'Bolivia', 'EC': 'Ecuador', 'IT': 'Italia', 'FR': 'Francia', 'DE': 'Alemania',
-            'GB': 'Reino Unido', 'US': 'Estados Unidos', 'BR': 'Brasil', 'PT': 'Portugal',
-            'NL': 'Países Bajos', 'BE': 'Bélgica', 'CH': 'Suiza', 'AT': 'Austria', 'DK': 'Dinamarca',
-            'SE': 'Suecia', 'NO': 'Noruega', 'FI': 'Finlandia', 'PL': 'Polonia', 'CZ': 'República Checa',
-            'SK': 'Eslovaquia', 'SI': 'Eslovenia', 'HU': 'Hungría', 'RO': 'Rumania', 'BG': 'Bulgaria',
-            'GR': 'Grecia', 'TR': 'Turquía'
-        };
+            const countries = data
+                .filter(country => country.idd && country.idd.root)
+                .map(country => {
+                    const callingCode = country.idd.root + (country.idd.suffixes ? country.idd.suffixes[0] : '');
+                    return {
+                        iso: country.cca2,
+                        code: callingCode,
+                        name: country.name.common,
+                        flag: country.flags.svg
+                    };
+                });
 
-        const countryFlags = {
-            'HR': '🇭🇷', 'ES': '🇪🇸', 'AR': '🇦🇷', 'MX': '🇲🇽', 'CO': '🇨🇴',
-            'CL': '🇨🇱', 'PE': '🇵🇪', 'VE': '🇻🇪', 'UY': '🇺🇾', 'PY': '🇵🇾',
-            'BO': '🇧🇴', 'EC': '🇪🇨', 'IT': '🇮🇹', 'FR': '🇫🇷', 'DE': '🇩🇪',
-            'GB': '🇬🇧', 'US': '🇺🇸', 'BR': '🇧🇷', 'PT': '🇵🇹', 'NL': '🇳🇱',
-            'BE': '🇧🇪', 'CH': '🇨🇭', 'AT': '🇦🇹', 'DK': '🇩🇰', 'SE': '🇸🇪',
-            'NO': '🇳🇴', 'FI': '🇫🇮', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'SK': '🇸🇰',
-            'SI': '🇸🇮', 'HU': '🇭🇺', 'RO': '🇷🇴', 'BG': '🇧🇬', 'GR': '🇬🇷', 'TR': '🇹🇷'
-        };
+            countries.sort((a, b) => a.name.localeCompare(b.name));
 
-        // Códigos de respaldo
-        const fallbackCodes = {
-            'HR': '+385', 'ES': '+34', 'AR': '+54', 'MX': '+52', 'CO': '+57',
-            'CL': '+56', 'PE': '+51', 'VE': '+58', 'UY': '+598', 'PY': '+595',
-            'BO': '+591', 'EC': '+593', 'IT': '+39', 'FR': '+33', 'DE': '+49',
-            'GB': '+44', 'US': '+1', 'BR': '+55', 'PT': '+351', 'NL': '+31',
-            'BE': '+32', 'CH': '+41', 'AT': '+43', 'DK': '+45', 'SE': '+46',
-            'NO': '+47', 'FI': '+358', 'PL': '+48', 'CZ': '+420', 'SK': '+421',
-            'SI': '+386', 'HU': '+36', 'RO': '+40', 'BG': '+359', 'GR': '+30', 'TR': '+90'
-        };
+            select.innerHTML = '<option value="">Seleccionar país...</option>';
 
-        // Intentar usar libphonenumber si está disponible
-        if (typeof libphonenumber !== 'undefined') {
-            commonCountries.forEach(iso => {
-                try {
-                    const callingCode = libphonenumber.getCountryCallingCode(iso);
-                    countries.push({
-                        iso: iso,
-                        code: '+' + callingCode,
-                        name: countryNames[iso] || iso,
-                        flag: countryFlags[iso] || '🌍'
-                    });
-                } catch (error) {
-                    // Usar fallback si libphonenumber falla
-                    if (fallbackCodes[iso]) {
-                        countries.push({
-                            iso: iso,
-                            code: fallbackCodes[iso],
-                            name: countryNames[iso] || iso,
-                            flag: countryFlags[iso] || '🌍'
-                        });
-                    }
-                }
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country.code;
+                // Usamos la bandera en formato de imagen SVG para compatibilidad
+                option.innerHTML = `<img src="${country.flag}" alt="${country.name}" style="width: 1.2em; height: 0.9em; margin-right: 0.5em; vertical-align: middle;"> ${country.code} (${country.name})`;
+                select.appendChild(option);
             });
-        } else {
-            // Usar códigos de respaldo si libphonenumber no está disponible
-            console.warn('⚠️ libphonenumber no está disponible, usando códigos de respaldo');
-            commonCountries.forEach(iso => {
-                if (fallbackCodes[iso]) {
-                    countries.push({
-                        iso: iso,
-                        code: fallbackCodes[iso],
-                        name: countryNames[iso] || iso,
-                        flag: countryFlags[iso] || '🌍'
-                    });
-                }
-            });
-        }
 
-        // Ordenar países por nombre
-        countries.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Limpiar opciones existentes
-        select.innerHTML = '<option value="">Seleccionar país...</option>';
-
-        // Agregar opciones de países
-        countries.forEach(country => {
-            const option = document.createElement('option');
-            option.value = country.code;
-            option.textContent = `${country.flag} ${country.code} (${country.name})`;
-            select.appendChild(option);
-        });
-
-        console.log(`✅ Cargados ${countries.length} países exitosamente`);
+            console.log(`✅ Cargados ${countries.length} países exitosamente desde la API`);
+        }, 'carga de países desde API');
 
     } catch (error) {
-        console.error('❌ Error cargando países:', error);
+        console.error('❌ Error cargando países desde la API, usando fallback:', error);
         loadFallbackCountries(select);
     }
 }
 
 function loadFallbackCountries(select) {
     console.warn('🔄 Cargando países de respaldo mínimo...');
-    
+
     const fallbackCountries = [
         { code: '+385', name: 'Croacia', flag: '🇭🇷' },
         { code: '+34', name: 'España', flag: '🇪🇸' },
@@ -194,7 +132,7 @@ function loadFallbackCountries(select) {
     ];
 
     select.innerHTML = '<option value="">Seleccionar país...</option>';
-    
+
     fallbackCountries.forEach(country => {
         const option = document.createElement('option');
         option.value = country.code;
@@ -273,13 +211,13 @@ function getPhoneFormat(countryCode) {
 async function submitForm(form, messageDiv) {
     // Validación básica de campos requeridos
     const requiredFields = ['nombre', 'apellido', 'nacionalidad', 'email', 'pais_codigo', 'telefono', 'puesto', 'ingles_nivel', 'experiencia', 'cv'];
-    
+
     for (const fieldName of requiredFields) {
         const field = form.elements[fieldName];
         if (!field) {
             throw new Error(`Campo ${fieldName} no encontrado`);
         }
-        
+
         if (field.type === 'file') {
             if (field.files.length === 0) {
                 field.focus();
@@ -354,14 +292,14 @@ async function submitForm(form, messageDiv) {
 function showFormLoadingState(loading, messageDiv) {
     const submitBtn = document.querySelector('.submit-btn');
     const btnText = submitBtn?.querySelector('span');
-    
+
     if (loading) {
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.setAttribute('aria-disabled', 'true');
             if (btnText) btnText.textContent = 'Enviando...';
         }
-        
+
         messageDiv.innerHTML = `
             <div style="color: #0088B9; text-align: center; padding: 1rem;">
                 <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #00B4D8; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5rem;"></div>
@@ -384,7 +322,7 @@ function handleFormSubmissionSuccess(form, messageDiv) {
             <small>Gracias por tu interés. Te contactaremos pronto.</small>
         </div>
     `;
-    
+
     form.reset();
     clearFormValidations();
     messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -392,10 +330,10 @@ function handleFormSubmissionSuccess(form, messageDiv) {
 
 function handleFormSubmissionError(error, messageDiv) {
     console.error('❌ Error en envío del formulario:', error);
-    
+
     let errorMessage = '❌ Error de conexión con el servidor. ';
     let errorClass = 'error-connection';
-    
+
     if (error.message.includes('⚠️')) {
         errorMessage = error.message;
         errorClass = 'error-validation';
@@ -410,7 +348,7 @@ function handleFormSubmissionError(error, messageDiv) {
     } else {
         errorMessage += 'Verifica tu conexión e inténtalo de nuevo.';
     }
-    
+
     messageDiv.innerHTML = `
         <div class="${errorClass}" style="color: #dc3545; text-align: center; padding: 1rem; background: #f8d7da; border-radius: 6px; margin: 1rem 0;">
             ${errorMessage}
@@ -426,7 +364,7 @@ function clearFormValidations() {
         phoneFormat.textContent = '';
         phoneFormat.className = 'phone-format';
     }
-    
+
     // Rehabilitar checkboxes
     const puestosAdicionales = document.querySelectorAll('input[name="puesto_adicional"]');
     puestosAdicionales.forEach(checkbox => {
@@ -439,7 +377,7 @@ function clearFormValidations() {
 function setupRealTimeValidation() {
     // Validación de archivos
     const fileInputs = document.querySelectorAll('input[type="file"][data-max-size]');
-    
+
     fileInputs.forEach(input => {
         input.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -539,28 +477,28 @@ function setupRealTimeValidation() {
 }
 
 // =================== INICIALIZACIÓN ===================
-function initializeApp() {
+async function initializeApp() {
     if (isAppInitialized) return;
-    
+
     try {
         console.log('🚀 Inicializando WorkWave Coast App...');
-        
-        // Cargar países
-        loadCountryOptions();
-        
+
+        // Cargar países y esperar a que termine
+        await loadCountryOptions();
+
         // Configurar validaciones en tiempo real
         setupRealTimeValidation();
-        
+
         // Configurar envío de formulario
         const form = document.getElementById('applicationForm');
         const messageDiv = document.getElementById('message');
-        
+
         if (form && messageDiv) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
+
                 showFormLoadingState(true, messageDiv);
-                
+
                 try {
                     await retryWithBackoff(
                         () => submitForm(form, messageDiv),
@@ -574,10 +512,10 @@ function initializeApp() {
                 }
             });
         }
-        
+
         isAppInitialized = true;
         console.log('✅ WorkWave Coast App inicializada correctamente');
-        
+
     } catch (error) {
         console.error('❌ Error inicializando la aplicación:', error);
     }
@@ -590,18 +528,18 @@ loadingStyles.textContent = `
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-    
+
     .phone-format {
         color: #666;
         font-size: 0.8rem;
         margin-top: 0.25rem;
         display: block;
     }
-    
+
     .phone-success {
         color: #28a745;
     }
-    
+
     .phone-error {
         color: #dc3545;
     }
