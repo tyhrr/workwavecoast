@@ -1,49 +1,108 @@
 # 🔧 Guía Técnica: Configuración Completa de WorkWave Coast Backend
+*Actualizada: 10 de Agosto, 2025*
 
-## 🗃️ 1. Conectar Flask con MongoDB Atlas (IMPLEMENTADO ✅)
+## 🗃️ 1. MongoDB Atlas - CONFIGURACIÓN ACTUAL (IMPLEMENTADO ✅)
 
-### 1.1. Base de Datos Configurada
-- ✅ **Cluster**: MongoDB Atlas configurado en la nube
-- ✅ **Base de datos**: `workwave` (nombre actualizado)
-- ✅ **Colección**: `applications` (renombrada de 'candidates')
+### 1.1. Base de Datos en Producción
+- ✅ **Cluster**: MongoDB Atlas funcionando en la nube
+- ✅ **Base de datos**: `workwave` (configurada y operativa)
+- ✅ **Colección**: `applications` (almacenando aplicaciones de trabajo)
 - ✅ **Índices optimizados**: email, puesto, created_at, status, búsqueda de texto
+- ✅ **Estado**: Sistema en producción con aplicaciones almacenadas
 
-### 1.2. URI de Conexión Segura
+### 1.2. URI de Conexión Segura (CONFIGURADA)
 ```env
+# Configuración actual en variables de entorno (Render.com)
 MONGO_URI=mongodb+srv://usuario:password@cluster.mongodb.net/workwave?retryWrites=true&w=majority
 ```
 
-### 1.3. Variables de Entorno Actuales (Configuradas)
-El archivo `.env` en `/backend` incluye:
+### 1.3. Variables de Entorno en Producción (CONFIGURADAS)
+El sistema está desplegado con variables de entorno seguras en Render.com:
 ```env
-# Base de Datos Principal
-MONGO_URI=mongodb+srv://...
+# Base de Datos Principal - MongoDB Atlas
+MONGO_URI=mongodb+srv://[CONFIGURADO_SEGURAMENTE]
 
-# Almacenamiento de Archivos (Cloudinary reemplaza Firebase)
-CLOUDINARY_CLOUD_NAME=workwave-coast
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
+# Almacenamiento de Archivos - Cloudinary CDN
+CLOUDINARY_CLOUD_NAME=dde3kelit
+CLOUDINARY_API_KEY=746326863757738
+CLOUDINARY_API_SECRET=[CONFIGURADO_SEGURAMENTE]
 
 # Seguridad de la Aplicación
-SECRET_KEY=clave-secreta-para-sesiones
-ADMIN_PASSWORD=password-seguro-admin
+SECRET_KEY=[CONFIGURADO_SEGURAMENTE]
+ADMIN_USERNAME=[CONFIGURADO_SEGURAMENTE]
+ADMIN_PASSWORD=[CONFIGURADO_SEGURAMENTE]
 
 # Configuración del Servidor
 PORT=5000
 FLASK_ENV=production
 ```
 
-### 1.4. Dependencias Instaladas y Actualizadas
+### 1.4. Dependencias en Producción (INSTALADAS Y FUNCIONANDO)
 ```bash
-# Dependencias principales (YA INSTALADAS)
-flask==2.1.0                    # Framework web
+# Dependencias principales del sistema actual
+flask==2.3.3                    # Framework web
 flask-cors==4.0.0               # Cross-Origin Resource Sharing
 flask-limiter==3.5.0            # Rate limiting y seguridad
 pymongo==4.6.0                  # Driver MongoDB oficial
 python-dotenv==1.0.0            # Variables de entorno
 pythonjsonlogger==2.0.7         # Logging estructurado JSON
-cloudinary==1.36.0              # Almacenamiento de archivos (reemplaza Firebase)
+cloudinary==1.36.0              # Almacenamiento de archivos CDN
+gunicorn==21.2.0                # Servidor WSGI para producción
+requests==2.31.0                # Cliente HTTP
 ```
+
+## 🏭 2. Sistema de Archivos - Cloudinary CDN (IMPLEMENTADO ✅)
+
+### 2.1. Configuración Actual
+- ✅ **Cloud Name**: `dde3kelit` (configurado)
+- ✅ **Upload Preset**: Configurado para archivos PDF e imágenes
+- ✅ **Transformaciones**: Automáticas para optimización
+- ✅ **URLs Públicas**: Accesibles desde cualquier ubicación
+- ✅ **Límites**: 1MB para CV, 2MB para documentos adicionales
+
+### 2.2. Integración con Flask (FUNCIONANDO)
+```python
+# Configuración actual en app.py
+import cloudinary
+import cloudinary.uploader
+
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
+
+# Upload de archivos (IMPLEMENTADO)
+def upload_file_to_cloudinary(file, folder="applications"):
+    try:
+        result = cloudinary.uploader.upload(
+            file,
+            folder=folder,
+            resource_type="auto",
+            public_id=f"{folder}/{secure_filename(file.filename)}"
+        )
+        return result['secure_url']
+    except Exception as e:
+        logger.error(f"Error uploading to Cloudinary: {str(e)}")
+        return None
+```
+
+## 🚀 3. Estado Actual del Sistema (PRODUCCIÓN)
+
+### 3.1. URLs Activas
+- ✅ **Frontend**: https://workwavecoast.online
+- ✅ **Backend API**: https://workwavecoast.onrender.com
+- ✅ **Admin Panel**: https://workwavecoast.onrender.com/admin
+- ✅ **Health Check**: https://workwavecoast.onrender.com/api/system-status
+
+### 3.2. Funcionalidades Operativas
+- ✅ **Formulario de aplicación**: Completamente funcional
+- ✅ **Validación en tiempo real**: Frontend y backend sincronizados
+- ✅ **Upload de archivos**: CV y documentos a Cloudinary
+- ✅ **Base de datos**: Almacenamiento en MongoDB Atlas
+- ✅ **Panel administrativo**: Gestión de aplicaciones
+- ✅ **Rate limiting**: Protección contra spam
+- ✅ **CORS**: Configurado para múltiples dominios
 
 ### 1.5. Código de Conexión Implementado (app.py v2.1.0)
 ```python
