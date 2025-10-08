@@ -98,6 +98,164 @@ if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is required for security")
 app.secret_key = SECRET_KEY
 
+# =================== COUNTRY FLAGS FUNCTIONALITY ===================
+def country_name_to_iso(country_name):
+    """Convert country name in Spanish to ISO 3166-1 alpha-2 code."""
+    country_mapping = {
+        'Croacia': 'HR',
+        'España': 'ES', 
+        'Argentina': 'AR',
+        'México': 'MX',
+        'Colombia': 'CO',
+        'Chile': 'CL',
+        'Perú': 'PE',
+        'Venezuela': 'VE',
+        'Uruguay': 'UY',
+        'Paraguay': 'PY',
+        'Bolivia': 'BO',
+        'Ecuador': 'EC',
+        'Italia': 'IT',
+        'Francia': 'FR',
+        'Alemania': 'DE',
+        'Reino Unido': 'GB',
+        'Estados Unidos': 'US',
+        'Brasil': 'BR',
+        'Portugal': 'PT',
+        'Países Bajos': 'NL',
+        'Holanda': 'NL',
+        'Bélgica': 'BE',
+        'Suiza': 'CH',
+        'Austria': 'AT',
+        'Dinamarca': 'DK',
+        'Suecia': 'SE',
+        'Noruega': 'NO',
+        'Finlandia': 'FI',
+        'Polonia': 'PL',
+        'República Checa': 'CZ',
+        'Eslovaquia': 'SK',
+        'Eslovenia': 'SI',
+        'Hungría': 'HU',
+        'Rumania': 'RO',
+        'Bulgaria': 'BG',
+        'Grecia': 'GR',
+        'Turquía': 'TR',
+        'Canadá': 'CA',
+        'Australia': 'AU',
+        'Nueva Zelanda': 'NZ',
+        'Japón': 'JP',
+        'Corea del Sur': 'KR',
+        'China': 'CN',
+        'India': 'IN',
+        'Rusia': 'RU',
+        'Ucrania': 'UA',
+        'Marruecos': 'MA',
+        'Egipto': 'EG',
+        'Sudáfrica': 'ZA',
+        'Nigeria': 'NG',
+        'Kenia': 'KE',
+        'Túnez': 'TN',
+        'Argelia': 'DZ',
+        'Costa Rica': 'CR',
+        'Panamá': 'PA',
+        'Guatemala': 'GT',
+        'Honduras': 'HN',
+        'El Salvador': 'SV',
+        'Nicaragua': 'NI',
+        'República Dominicana': 'DO',
+        'Cuba': 'CU',
+        'Jamaica': 'JM',
+        'Haití': 'HT',
+        'Puerto Rico': 'PR',
+        'Israel': 'IL',
+        'Jordania': 'JO',
+        'Líbano': 'LB',
+        'Siria': 'SY',
+        'Irán': 'IR',
+        'Irak': 'IQ',
+        'Arabia Saudí': 'SA',
+        'Emiratos Árabes Unidos': 'AE',
+        'Qatar': 'QA',
+        'Kuwait': 'KW',
+        'Bahréin': 'BH',
+        'Omán': 'OM',
+        'Yemen': 'YE',
+        'Afganistán': 'AF',
+        'Pakistán': 'PK',
+        'Bangladesh': 'BD',
+        'Sri Lanka': 'LK',
+        'Nepal': 'NP',
+        'Bután': 'BT',
+        'Maldivas': 'MV',
+        'Tailandia': 'TH',
+        'Vietnam': 'VN',
+        'Camboya': 'KH',
+        'Laos': 'LA',
+        'Myanmar': 'MM',
+        'Malasia': 'MY',
+        'Singapur': 'SG',
+        'Indonesia': 'ID',
+        'Brunéi': 'BN',
+        'Filipinas': 'PH',
+        'Timor Oriental': 'TL',
+        'Mongolia': 'MN',
+        'Kazajistán': 'KZ',
+        'Uzbekistán': 'UZ',
+        'Turkmenistán': 'TM',
+        'Tayikistán': 'TJ',
+        'Kirguistán': 'KG',
+        'Armenia': 'AM',
+        'Azerbaiyán': 'AZ',
+        'Georgia': 'GE',
+        'Moldavia': 'MD',
+        'Bielorrusia': 'BY',
+        'Lituania': 'LT',
+        'Letonia': 'LV',
+        'Estonia': 'EE',
+        'Islandia': 'IS',
+        'Irlanda': 'IE',
+        'Malta': 'MT',
+        'Chipre': 'CY',
+        'Luxemburgo': 'LU',
+        'Mónaco': 'MC',
+        'Andorra': 'AD',
+        'San Marino': 'SM',
+        'Vaticano': 'VA',
+        'Liechtenstein': 'LI'
+    }
+    
+    return country_mapping.get(country_name, None)
+
+def iso_to_flag_emoji(iso_code):
+    """Convert ISO 3166-1 alpha-2 country code to flag emoji."""
+    if not iso_code or len(iso_code) != 2:
+        return '🌍'  # Default world emoji for unknown countries
+    
+    # Convert each character to its corresponding regional indicator symbol
+    # Regional Indicator Symbols: U+1F1E6 to U+1F1FF (A-Z)
+    first_char = ord(iso_code[0].upper()) - ord('A') + 0x1F1E6
+    second_char = ord(iso_code[1].upper()) - ord('A') + 0x1F1E6
+    
+    try:
+        return chr(first_char) + chr(second_char)
+    except ValueError:
+        return '🌍'  # Fallback for invalid codes
+
+def get_country_flag(country_name):
+    """Get flag emoji for country name."""
+    if not country_name or country_name.lower() == 'otra':
+        return '🌍'
+    
+    iso_code = country_name_to_iso(country_name)
+    if iso_code:
+        return iso_to_flag_emoji(iso_code)
+    return '🌍'
+
+# Register custom Jinja2 filter for country flags
+@app.template_filter('country_flag')
+def country_flag_filter(country_name):
+    """Jinja2 filter to convert country name to flag emoji."""
+    return get_country_flag(country_name)
+
 # Configuration constants - Force environment variables
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
@@ -1111,7 +1269,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                 <div class="applicant-info">
                     <div class="applicant-name">{{ app.get('nombre', '')|e }} {{ app.get('apellido', '')|e }}</div>
                     <div class="applicant-details">
-                        📧 {{ app.get('email', '')|e }} | 📞 {{ app.get('telefono', '')|e }} | 🌍 {{ app.get('nacionalidad', '')|e }}
+                        📧 {{ app.get('email', '')|e }} | 📞 {{ app.get('telefono', '')|e }} | {{ app.get('nacionalidad', '')|country_flag }} {{ app.get('nacionalidad', '')|e }}
                     </div>
                 </div>
 
@@ -1156,11 +1314,14 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                                 </span>
                             {% endif %}
                         {% endfor %}
-                        <button class="expand-btn" onclick="toggleFileDetails(this)" title="Ver detalles de archivos">
+                        <button class="expand-btn" onclick="toggleFileDetails(this)" title="Ver detalles y experiencia">
                             📋
                         </button>
                     {% else %}
                         <span class="no-files">Sin archivos</span>
+                        <button class="expand-btn" onclick="toggleFileDetails(this)" title="Ver experiencia laboral">
+                            📋
+                        </button>
                     {% endif %}
                 </div>
 
@@ -1168,13 +1329,28 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                     🗑️
                 </button>
 
-                <!-- Detailed file info (expandable) -->
+                <!-- Detailed info (expandable) -->
                 <div class="file-details" style="display: none;">
+                    <!-- Experience Section -->
+                    <div class="file-detail-item" style="background: #e8f4f8; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <strong style="color: #00587A; font-size: 1rem;">💼 Experiencia Laboral:</strong>
+                        <div style="margin-top: 0.5rem; line-height: 1.5; color: #1A2A36; font-size: 0.9rem; white-space: pre-wrap;">{{ app.get('experiencia', 'No especificada')|e }}</div>
+                        {% if app.get('puestos_adicionales') %}
+                            <div style="margin-top: 0.8rem;">
+                                <strong style="color: #0088B9;">📌 Puestos adicionales de interés:</strong>
+                                <span style="color: #666; margin-left: 0.5rem;">{{ app.get('puestos_adicionales', '')|e }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Files Section -->
                     {% if app.get('files_parsed') %}
-                        {% for file_type, file_info in app.get('files_parsed', {}).items() %}
-                            <div class="file-detail-item">
-                                <strong>{{ file_type.title() }}:</strong>
-                                {% if file_info.get('url') %}
+                        <div style="border-top: 1px solid #e9ecef; padding-top: 1rem;">
+                            <strong style="color: #00587A; margin-bottom: 0.5rem; display: block;">📎 Archivos Adjuntos:</strong>
+                            {% for file_type, file_info in app.get('files_parsed', {}).items() %}
+                                <div class="file-detail-item">
+                                    <strong>{{ file_type.title() }}:</strong>
+                                    {% if file_info.get('url') %}
                                     {% if 'cloudinary.com' in file_info.get('url', '') %}
                                         {% set url_parts = file_info.get('url', '').split('/') %}
                                         {% set proxy_path = '' %}
@@ -1197,19 +1373,22 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
                                         <br><small>Tipo: {{ file_info.get('resource_type', 'auto') }}</small>
                                     {% endif %}
                                     <br><small><a href="{{ file_info.get('url') }}" target="_blank" style="color: #666;">URL directa</a></small>
-                                {% else %}
-                                    <span>{{ file_info.get('filename', 'N/A') }}</span>
-                                    <small>({{ file_info.get('status', 'Error') }})</small>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
+                                    {% else %}
+                                        <span>{{ file_info.get('filename', 'N/A') }}</span>
+                                        <small>({{ file_info.get('status', 'Error') }})</small>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div style="border-top: 1px solid #e9ecef; padding-top: 1rem; color: #666; font-style: italic;">
+                            No hay archivos adjuntos
+                        </div>
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
-        </div>
-
-        <div id="noResults" class="no-results" style="display: none;">
+        </div>        <div id="noResults" class="no-results" style="display: none;">
             No se encontraron aplicaciones que coincidan con los filtros seleccionados.
         </div>
     </div>
@@ -1478,7 +1657,7 @@ ADMIN_TEMPLATE = '''<!DOCTYPE html>
             } else {
                 fileDetails.style.display = 'none';
                 button.textContent = '📋';
-                button.title = 'Ver detalles de archivos';
+                button.title = 'Ver detalles y experiencia';
             }
         }
 
