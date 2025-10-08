@@ -103,7 +103,7 @@ def country_name_to_iso(country_name):
     """Convert country name in Spanish to ISO 3166-1 alpha-2 code."""
     country_mapping = {
         'Croacia': 'HR',
-        'España': 'ES', 
+        'España': 'ES',
         'Argentina': 'AR',
         'México': 'MX',
         'Colombia': 'CO',
@@ -222,19 +222,19 @@ def country_name_to_iso(country_name):
         'Vaticano': 'VA',
         'Liechtenstein': 'LI'
     }
-    
+
     return country_mapping.get(country_name, None)
 
 def iso_to_flag_emoji(iso_code):
     """Convert ISO 3166-1 alpha-2 country code to flag emoji."""
     if not iso_code or len(iso_code) != 2:
         return '🌍'  # Default world emoji for unknown countries
-    
+
     # Convert each character to its corresponding regional indicator symbol
     # Regional Indicator Symbols: U+1F1E6 to U+1F1FF (A-Z)
     first_char = ord(iso_code[0].upper()) - ord('A') + 0x1F1E6
     second_char = ord(iso_code[1].upper()) - ord('A') + 0x1F1E6
-    
+
     try:
         return chr(first_char) + chr(second_char)
     except ValueError:
@@ -244,7 +244,7 @@ def get_country_flag(country_name):
     """Get flag emoji for country name."""
     if not country_name or country_name.lower() == 'otra':
         return '🌍'
-    
+
     iso_code = country_name_to_iso(country_name)
     if iso_code:
         return iso_to_flag_emoji(iso_code)
