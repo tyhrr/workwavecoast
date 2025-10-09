@@ -117,7 +117,7 @@ def send_confirmation_email(applicant_name, applicant_email):
     try:
         # Email subject and body
         subject = "Confirmación de recepción de tu postulación"
-        
+
         html_body = f"""
         <!DOCTYPE html>
         <html lang="es">
@@ -204,18 +204,18 @@ def send_confirmation_email(applicant_name, applicant_email):
             <div class="header">
                 <h1><span class="logo">🏖️</span>WorkWave Coast</h1>
             </div>
-            
+
             <div class="content">
                 <div class="greeting">Hola {applicant_name},</div>
-                
+
                 <div class="main-text">
                     Queremos confirmarte que hemos recibido correctamente tu información y que ya forma parte de nuestra base de datos de candidatos para futuras oportunidades laborales en Croacia.
                 </div>
-                
+
                 <div class="main-text">
                     Por el momento, no es necesario que realices ninguna acción adicional. Nuestro equipo revisará tu perfil y se pondrá en contacto contigo en caso de que tu experiencia se ajuste a alguna de las posiciones disponibles.
                 </div>
-                
+
                 <div class="suggestions">
                     <h3>Mientras tanto, te sugerimos:</h3>
                     <ul>
@@ -224,12 +224,12 @@ def send_confirmation_email(applicant_name, applicant_email):
                         <li><strong>Seguir nuestras redes sociales</strong> para conocer nuevas oportunidades y consejos laborales en la región.</li>
                     </ul>
                 </div>
-                
+
                 <div class="main-text">
                     Gracias por tu interés y confianza en nuestro equipo.<br>
                     Te deseamos mucho éxito en tu búsqueda laboral.
                 </div>
-                
+
                 <div class="footer">
                     <div class="signature">
                         Un cordial saludo,<br>
@@ -240,7 +240,7 @@ def send_confirmation_email(applicant_name, applicant_email):
         </body>
         </html>
         """
-        
+
         # Plain text version for email clients that don't support HTML
         text_body = f"""
 Hola {applicant_name},
@@ -263,7 +263,7 @@ Te deseamos mucho éxito en tu búsqueda laboral.
 Un cordial saludo,
 El equipo de WorkWave Coast
         """
-        
+
         # Create and send email
         msg = Message(
             subject=subject,
@@ -271,16 +271,16 @@ El equipo de WorkWave Coast
             html=html_body,
             body=text_body
         )
-        
+
         mail.send(msg)
-        
+
         app.logger.info("Confirmation email sent successfully", extra={{
             "recipient": applicant_email,
             "applicant_name": applicant_name
         }})
-        
+
         return True
-        
+
     except Exception as e:
         app.logger.error("Failed to send confirmation email", extra={{
             "recipient": applicant_email,
@@ -2558,9 +2558,9 @@ def submit_application():
         })
 
         # Send confirmation email to applicant
-        applicant_name = data.get('nombre', '')
+        applicant_name = f"{data.get('nombre', '')} {data.get('apellido', '')}".strip()
         applicant_email = data.get('email', '')
-        
+
         if applicant_name and applicant_email:
             email_sent = send_confirmation_email(applicant_name, applicant_email)
             if email_sent:
