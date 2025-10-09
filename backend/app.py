@@ -26,6 +26,7 @@ from flask import Flask, request, jsonify, session, render_template_string, redi
 from flask_cors import CORS, cross_origin
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_mail import Mail, Message
 from pymongo import MongoClient
 import pymongo.errors
 from bson import ObjectId
@@ -97,6 +98,196 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY environment variable is required for security")
 app.secret_key = SECRET_KEY
+
+# =================== EMAIL CONFIGURATION ===================
+# Email configuration for sending confirmation emails
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'true').lower() == 'true'
+app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'false').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', app.config['MAIL_USERNAME'])
+
+# Initialize Flask-Mail
+mail = Mail(app)
+
+def send_confirmation_email(applicant_name, applicant_email):
+    """Send confirmation email to applicant after successful application submission."""
+    try:
+        # Email subject and body
+        subject = "Confirmación de recepción de tu postulación"
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Confirmación de Postulación - WorkWave Coast</title>
+            <style>
+                body {{
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #1A2A36;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #F7FAFC;
+                }}
+                .header {{
+                    background: linear-gradient(90deg, #00587A 0%, #0088B9 100%);
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                    border-radius: 10px 10px 0 0;
+                }}
+                .header h1 {{
+                    margin: 0;
+                    font-size: 28px;
+                    font-weight: 700;
+                }}
+                .content {{
+                    background: white;
+                    padding: 30px;
+                    border-radius: 0 0 10px 10px;
+                    box-shadow: 0 4px 24px rgba(0,88,122,0.08);
+                }}
+                .greeting {{
+                    font-size: 18px;
+                    color: #00587A;
+                    margin-bottom: 20px;
+                    font-weight: 600;
+                }}
+                .main-text {{
+                    margin-bottom: 25px;
+                    line-height: 1.7;
+                }}
+                .suggestions {{
+                    background: #E8F4F8;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 25px 0;
+                    border-left: 4px solid #00B4D8;
+                }}
+                .suggestions h3 {{
+                    color: #00587A;
+                    margin-top: 0;
+                    margin-bottom: 15px;
+                }}
+                .suggestions ul {{
+                    margin: 0;
+                    padding-left: 20px;
+                }}
+                .suggestions li {{
+                    margin-bottom: 10px;
+                }}
+                .footer {{
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 2px solid #E8F4F8;
+                    text-align: center;
+                }}
+                .signature {{
+                    color: #0088B9;
+                    font-weight: 600;
+                    margin-top: 20px;
+                }}
+                .logo {{
+                    display: inline-block;
+                    margin-right: 10px;
+                    font-size: 24px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1><span class="logo">🏖️</span>WorkWave Coast</h1>
+            </div>
+            
+            <div class="content">
+                <div class="greeting">Hola {applicant_name},</div>
+                
+                <div class="main-text">
+                    Queremos confirmarte que hemos recibido correctamente tu información y que ya forma parte de nuestra base de datos de candidatos para futuras oportunidades laborales en Croacia.
+                </div>
+                
+                <div class="main-text">
+                    Por el momento, no es necesario que realices ninguna acción adicional. Nuestro equipo revisará tu perfil y se pondrá en contacto contigo en caso de que tu experiencia se ajuste a alguna de las posiciones disponibles.
+                </div>
+                
+                <div class="suggestions">
+                    <h3>Mientras tanto, te sugerimos:</h3>
+                    <ul>
+                        <li><strong>Mantener tu currículum actualizado</strong>, especialmente en lo referente a idiomas y experiencia reciente.</li>
+                        <li><strong>Revisar tu correo y carpeta de spam con frecuencia</strong>, por si te contactamos.</li>
+                        <li><strong>Seguir nuestras redes sociales</strong> para conocer nuevas oportunidades y consejos laborales en la región.</li>
+                    </ul>
+                </div>
+                
+                <div class="main-text">
+                    Gracias por tu interés y confianza en nuestro equipo.<br>
+                    Te deseamos mucho éxito en tu búsqueda laboral.
+                </div>
+                
+                <div class="footer">
+                    <div class="signature">
+                        Un cordial saludo,<br>
+                        <strong>El equipo de WorkWave Coast</strong>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Plain text version for email clients that don't support HTML
+        text_body = f"""
+Hola {applicant_name},
+
+Queremos confirmarte que hemos recibido correctamente tu información y que ya forma parte de nuestra base de datos de candidatos para futuras oportunidades laborales en Croacia.
+
+Por el momento, no es necesario que realices ninguna acción adicional. Nuestro equipo revisará tu perfil y se pondrá en contacto contigo en caso de que tu experiencia se ajuste a alguna de las posiciones disponibles.
+
+Mientras tanto, te sugerimos:
+
+• Mantener tu currículum actualizado, especialmente en lo referente a idiomas y experiencia reciente.
+
+• Revisar tu correo y carpeta de spam con frecuencia, por si te contactamos.
+
+• Seguir nuestras redes sociales para conocer nuevas oportunidades y consejos laborales en la región.
+
+Gracias por tu interés y confianza en nuestro equipo.
+Te deseamos mucho éxito en tu búsqueda laboral.
+
+Un cordial saludo,
+El equipo de WorkWave Coast
+        """
+        
+        # Create and send email
+        msg = Message(
+            subject=subject,
+            recipients=[applicant_email],
+            html=html_body,
+            body=text_body
+        )
+        
+        mail.send(msg)
+        
+        app.logger.info("Confirmation email sent successfully", extra={{
+            "recipient": applicant_email,
+            "applicant_name": applicant_name
+        }})
+        
+        return True
+        
+    except Exception as e:
+        app.logger.error("Failed to send confirmation email", extra={{
+            "recipient": applicant_email,
+            "applicant_name": applicant_name,
+            "error": str(e)
+        }})
+        return False
 
 # =================== COUNTRY FLAGS FUNCTIONALITY ===================
 def country_name_to_iso(country_name):
@@ -2365,6 +2556,23 @@ def submit_application():
             "phone": data.get('telefono', ''),
             "english_level": data.get('ingles_nivel', '')
         })
+
+        # Send confirmation email to applicant
+        applicant_name = data.get('nombre', '')
+        applicant_email = data.get('email', '')
+        
+        if applicant_name and applicant_email:
+            email_sent = send_confirmation_email(applicant_name, applicant_email)
+            if email_sent:
+                app.logger.info("Confirmation email sent", extra={
+                    "application_id": str(result.inserted_id),
+                    "recipient": applicant_email
+                })
+            else:
+                app.logger.warning("Failed to send confirmation email", extra={
+                    "application_id": str(result.inserted_id),
+                    "recipient": applicant_email
+                })
 
         return jsonify({
             "success": True,
