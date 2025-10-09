@@ -274,19 +274,19 @@ El equipo de WorkWave Coast
 
         mail.send(msg)
 
-        app.logger.info("Confirmation email sent successfully", extra={{
+        app.logger.info("Confirmation email sent successfully", extra={
             "recipient": applicant_email,
             "applicant_name": applicant_name
-        }})
+        })
 
         return True
 
     except Exception as e:
-        app.logger.error("Failed to send confirmation email", extra={{
+        app.logger.error("Failed to send confirmation email", extra={
             "recipient": applicant_email,
             "applicant_name": applicant_name,
             "error": str(e)
-        }})
+        })
         return False
 
 # =================== COUNTRY FLAGS FUNCTIONALITY ===================
