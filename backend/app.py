@@ -39,7 +39,26 @@ import cloudinary.utils
 import cloudinary.exceptions
 
 # Load environment variables
-load_dotenv()
+# Try to load .env from parent directory (where the .env file is located)
+import os
+from pathlib import Path
+
+# Get the directory of this script (backend folder)
+current_dir = Path(__file__).parent
+# Go up one level to the project root where .env is located
+project_root = current_dir.parent
+env_path = project_root / '.env'
+
+# Load environment variables with explicit path
+load_dotenv(dotenv_path=env_path)
+
+# Debug: Print if .env file was found
+if env_path.exists():
+    print(f"✅ Loading .env from: {env_path}")
+else:
+    print(f"⚠️ .env file not found at: {env_path}")
+    # Try loading from current directory as fallback
+    load_dotenv()
 
 app = Flask(__name__)
 
@@ -112,9 +131,39 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', app.config[
 # Initialize Flask-Mail
 mail = Mail(app)
 
+def check_email_configuration():
+    """Check if email configuration is properly set up."""
+    config_issues = []
+
+    if not app.config.get('MAIL_USERNAME'):
+        config_issues.append("MAIL_USERNAME not configured")
+    if not app.config.get('MAIL_PASSWORD'):
+        config_issues.append("MAIL_PASSWORD not configured")
+    if not app.config.get('MAIL_SERVER'):
+        config_issues.append("MAIL_SERVER not configured")
+
+    return len(config_issues) == 0, config_issues
+
 def send_confirmation_email(applicant_name, applicant_email):
     """Send confirmation email to applicant after successful application submission."""
     try:
+        # Check email configuration first
+        is_configured, issues = check_email_configuration()
+        if not is_configured:
+            app.logger.error("Email not configured properly", extra={
+                "configuration_issues": issues,
+                "recipient": applicant_email
+            })
+            return False
+
+        app.logger.info("Attempting to send confirmation email", extra={
+            "recipient": applicant_email,
+            "applicant_name": applicant_name,
+            "mail_server": app.config.get('MAIL_SERVER'),
+            "mail_port": app.config.get('MAIL_PORT'),
+            "mail_username": app.config.get('MAIL_USERNAME', 'Not set')
+        })
+
         # Email subject and body
         subject = "Confirmación de recepción de tu postulación"
 
@@ -2447,6 +2496,63 @@ def submit_options():
     """Handle preflight OPTIONS request for CORS."""
     return '', 204
 
+
+@app.route('/api/ping', methods=['GET'])
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
+def ping():
+    """Simple ping endpoint to verify backend connectivity."""
+    try:
+        return jsonify({
+            "status": "ok",
+            "message": "Backend is running",
+            "timestamp": datetime.now().isoformat(),
+            "version": "1.0.0"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/test-email', methods=['POST'])
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
+@safe_limit("5 per minute", error_message="Demasiadas solicitudes de prueba.")
+def test_email():
+    """Test endpoint to verify email configuration and send test email."""
+    try:
+        data = request.get_json()
+        test_email = data.get('email', 'test@example.com')
+
+        # Check email configuration
+        is_configured, issues = check_email_configuration()
+
+        result = {
+            "email_configured": is_configured,
+            "configuration_issues": issues,
+            "mail_server": app.config.get('MAIL_SERVER'),
+            "mail_port": app.config.get('MAIL_PORT'),
+            "mail_use_tls": app.config.get('MAIL_USE_TLS'),
+            "mail_username": app.config.get('MAIL_USERNAME', 'Not set')
+        }
+
+        if is_configured:
+            # Try to send test email
+            success = send_confirmation_email("Usuario de Prueba", test_email)
+            result["test_email_sent"] = success
+            result["test_email_recipient"] = test_email
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        app.logger.error("Error in test email endpoint", extra={
+            "error": str(e),
+            "type": type(e).__name__
+        })
+        return jsonify({
+            "error": "Failed to test email configuration",
+            "details": str(e)
+        }), 500
 
 @app.route('/api/submit', methods=['POST'])
 @cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
