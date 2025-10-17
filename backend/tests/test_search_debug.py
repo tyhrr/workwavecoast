@@ -9,8 +9,11 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 load_dotenv(project_root / '.env')
+
+# Add parent to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.application_service import ApplicationService
 import logging

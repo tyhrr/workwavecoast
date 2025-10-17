@@ -13,9 +13,12 @@ if sys.platform == 'win32':
 
 # Load environment
 from dotenv import load_dotenv
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 env_path = project_root / '.env'
 load_dotenv(env_path)
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.application_service import ApplicationService
 import logging
