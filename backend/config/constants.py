@@ -8,28 +8,67 @@ import re
 
 # File size limits (in bytes)
 FILE_SIZE_LIMITS = {
-    'cv': 5 * 1024 * 1024,  # 5MB
-    'carta_presentacion': 5 * 1024 * 1024,  # 5MB
-    'fotografia': 2 * 1024 * 1024,  # 2MB
+    'cv': 5 * 1024 * 1024,  # 5MB for CV
+    'foto': 2 * 1024 * 1024,  # 2MB for photos
+    'carta_presentacion': 5 * 1024 * 1024,  # 5MB for cover letters
+    'referencias': 5 * 1024 * 1024,  # 5MB for references
+    'certificados': 5 * 1024 * 1024,  # 5MB for certificates
 }
 
-# Allowed file extensions
+# Allowed file extensions and MIME types
 ALLOWED_EXTENSIONS = {
-    'cv': ['.pdf', '.doc', '.docx'],
+    'cv': ['.pdf'],  # Only PDF for CV
+    'foto': ['.jpg', '.jpeg', '.png'],  # Standard image formats
     'carta_presentacion': ['.pdf', '.doc', '.docx'],
-    'fotografia': ['.jpg', '.jpeg', '.png', '.gif'],
+    'referencias': ['.pdf', '.doc', '.docx'],
+    'certificados': ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'],
+}
+
+# Allowed MIME types for additional validation
+ALLOWED_MIME_TYPES = {
+    'cv': ['application/pdf'],
+    'foto': ['image/jpeg', 'image/jpg', 'image/png'],
+    'carta_presentacion': [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ],
+    'referencias': [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ],
+    'certificados': [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/jpg',
+        'image/png'
+    ],
 }
 
 # =================== FORM VALIDATION CONSTANTS ===================
 
 # Required form fields
 REQUIRED_FIELDS = [
-    'nombre', 'apellido', 'email', 'telefono', 
+    'nombre', 'apellido', 'email', 'telefono',
     'puesto', 'ingles_nivel', 'experiencia', 'nacionalidad'
 ]
 
 # Email validation pattern
 EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+# General validation patterns for form fields
+VALIDATION_PATTERNS = {
+    'nombre': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,50}$'),
+    'apellido': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,50}$'),
+    'email': EMAIL_PATTERN,
+    'nacionalidad': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,50}$'),
+    'puesto': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-\/]{2,100}$'),
+    'ingles_nivel': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,20}$'),
+    'experiencia': re.compile(r'^[\s\S]{10,2000}$'),  # Allow any characters, 10-2000 chars
+}
 
 # Phone validation patterns by country
 PHONE_PATTERNS = {
@@ -46,7 +85,7 @@ PHONE_PATTERNS = {
 # Available job positions
 AVAILABLE_POSITIONS = [
     'Desarrollador Frontend',
-    'Desarrollador Backend', 
+    'Desarrollador Backend',
     'Desarrollador Full Stack',
     'Diseñador UX/UI',
     'Product Manager',
@@ -87,9 +126,9 @@ DATABASE_INDEXES = [
     {'collection': 'candidates', 'index': [("nacionalidad", 1)], 'options': {}},
     # Compound index for search
     {'collection': 'candidates', 'index': [
-        ("nombre", "text"), 
-        ("apellido", "text"), 
-        ("email", "text"), 
+        ("nombre", "text"),
+        ("apellido", "text"),
+        ("email", "text"),
         ("puesto", "text"),
         ("experiencia", "text")
     ], 'options': {'name': 'search_idx'}},

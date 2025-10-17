@@ -27,13 +27,13 @@ def app():
         'MAIL_USERNAME': 'test@example.com',
         'MAIL_PASSWORD': 'test_password'
     }
-    
+
     with patch.dict(os.environ, env_vars):
         import app as app_module
         app = app_module.app
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
-        
+
         with app.app_context():
             yield app
 
