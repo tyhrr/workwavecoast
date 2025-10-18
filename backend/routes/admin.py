@@ -25,21 +25,35 @@ def init_admin_routes(admin_svc, app_svc, audit_svc, rbac_mw, logger: logging.Lo
 
 def require_admin_auth(f):
     """Decorator wrapper for rbac_middleware.require_admin_auth"""
-    if rbac_middleware is None:
-        raise RuntimeError("RBAC middleware not initialized")
-    return rbac_middleware.require_admin_auth(f)
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if rbac_middleware is None:
+            raise RuntimeError("RBAC middleware not initialized")
+        return rbac_middleware.require_admin_auth(f)(*args, **kwargs)
+    return decorated_function
 
 def require_permission(permission):
     """Decorator wrapper for rbac_middleware.require_permission"""
-    if rbac_middleware is None:
-        raise RuntimeError("RBAC middleware not initialized")
-    return rbac_middleware.require_permission(permission)
+    from functools import wraps
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if rbac_middleware is None:
+                raise RuntimeError("RBAC middleware not initialized")
+            return rbac_middleware.require_permission(permission)(f)(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 def optional_admin_auth(f):
     """Decorator wrapper for rbac_middleware.optional_admin_auth"""
-    if rbac_middleware is None:
-        raise RuntimeError("RBAC middleware not initialized")
-    return rbac_middleware.optional_admin_auth(f)
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if rbac_middleware is None:
+            raise RuntimeError("RBAC middleware not initialized")
+        return rbac_middleware.optional_admin_auth(f)(*args, **kwargs)
+    return decorated_function
 
 @admin_bp.route('/auth/login', methods=['POST'])
 def login():
