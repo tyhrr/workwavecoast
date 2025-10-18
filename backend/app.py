@@ -174,7 +174,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
         # Initialize other middleware
         AuthMiddleware(app)
         ValidationMiddleware(app)
-        ErrorMiddleware(app)
+        # ErrorMiddleware(app)  # Temporarily disabled - conflicts with error handlers
         LoggingMiddleware(app)
 
         logger.info("Middleware initialized successfully")
