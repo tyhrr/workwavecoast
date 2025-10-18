@@ -279,7 +279,7 @@ def change_password():
                 'message': 'Authentication required',
                 'error_type': 'NotAuthenticated'
             }), 401
-        
+
         data = request.get_json()
         if not data:
             return jsonify({

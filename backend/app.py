@@ -3,7 +3,7 @@ WorkWave Coast Application
 Updated main application with JWT authentication and RBAC
 """
 import os
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from dotenv import load_dotenv
 
 # Load environment variables first
@@ -319,17 +319,17 @@ def register_main_routes(application: Flask) -> None:
         }
 
     @application.route('/admin')
-    def admin_redirect():
-        """Admin panel information"""
-        return {
-            "message": "Admin panel available at /api/admin endpoints",
-            "endpoints": {
-                "login": "POST /api/admin/auth/login",
-                "dashboard": "GET /api/admin/dashboard",
-                "profile": "GET /api/admin/profile",
-                "applications": "GET /api/admin/applications"
-            }
-        }
+    @application.route('/admin/')
+    def admin_panel():
+        """Serve admin panel login page"""
+        admin_panel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'admin-panel')
+        return send_from_directory(admin_panel_path, 'login.html')
+    
+    @application.route('/admin/<path:filename>')
+    def admin_panel_files(filename):
+        """Serve admin panel static files"""
+        admin_panel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'admin-panel')
+        return send_from_directory(admin_panel_path, filename)
 
     @application.route('/api/status')
     def api_status():
