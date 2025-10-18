@@ -3,7 +3,6 @@ WorkWave Coast Application
 Updated main application with JWT authentication and RBAC
 """
 import os
-import logging
 from flask import Flask, render_template, request
 from dotenv import load_dotenv
 
@@ -49,12 +48,15 @@ from services import (
 )
 
 
-def create_app(config_name: str = None) -> Flask:
+from typing import Optional
+
+
+def create_app(config_name: Optional[str] = None) -> Flask:
     """
     Application factory function with enhanced authentication
 
     Args:
-        config_name: Configuration environment name
+        config_name: Configuration environment name (for future use)
 
     Returns:
         Configured Flask application
@@ -63,12 +65,14 @@ def create_app(config_name: str = None) -> Flask:
     app = Flask(__name__)
 
     # Load configuration
+    # Note: config_name parameter reserved for future multi-environment support
     config = get_config()
     app.config.from_object(config)
 
     # Setup logging
     logger = setup_logging("workwave_coast", app.config.get('LOG_LEVEL', 'INFO'))
-    app.logger = logger
+    # Note: app.logger assignment is for convenience, Flask's logger is a cached property
+    app.logger = logger  # type: ignore[misc]
 
     # Initialize database
     try:
@@ -78,9 +82,16 @@ def create_app(config_name: str = None) -> Flask:
         else:
             logger.warning("Database connection failed")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.error("Database initialization failed: %s", e)
 
-    # Initialize services
+    # Initialize services - declare variables first to avoid unbound errors
+    app_service = None
+    email_service = None
+    file_service = None
+    jwt_service = None
+    admin_service = None
+    audit_service = None
+
     try:
         # Core services
         app_service = ApplicationService(logger)
@@ -93,7 +104,7 @@ def create_app(config_name: str = None) -> Flask:
         audit_service = AuditService(logger)
 
         # Store services in app context
-        app.services = {
+        app.services = {  # type: ignore
             'application': app_service,
             'admin': admin_service,
             'file': file_service,
@@ -103,41 +114,52 @@ def create_app(config_name: str = None) -> Flask:
         }
         logger.info("Services initialized successfully")
     except Exception as e:
-        logger.error(f"Service initialization failed: {e}")
-        app.services = {}
+        logger.error("Service initialization failed: %s", e)
+        app.services = {}  # type: ignore
 
     # Initialize RBAC middleware
+    rbac_middleware = None
     try:
-        rbac_middleware = init_rbac_middleware(admin_service, jwt_service, logger)
-        app.rbac_middleware = rbac_middleware
-        logger.info("RBAC middleware initialized successfully")
+        if admin_service and jwt_service:
+            rbac_middleware = init_rbac_middleware(admin_service, jwt_service, logger)
+            app.rbac_middleware = rbac_middleware  # type: ignore
+            logger.info("RBAC middleware initialized successfully")
+        else:
+            logger.warning("Cannot initialize RBAC middleware: services not available")
+            app.rbac_middleware = None  # type: ignore
     except Exception as e:
-        logger.error(f"RBAC middleware initialization failed: {e}")
-        app.rbac_middleware = None
+        logger.error("RBAC middleware initialization failed: %s", e)
+        app.rbac_middleware = None  # type: ignore
 
     # Initialize route modules with services
     try:
         # Initialize admin routes
-        init_admin_routes(
-            admin_svc=admin_service,
-            app_svc=app_service,
-            audit_svc=audit_service,
-            rbac_mw=rbac_middleware,
-            logger=logger
-        )
+        if admin_service and app_service and audit_service and rbac_middleware:
+            init_admin_routes(
+                admin_svc=admin_service,
+                app_svc=app_service,
+                audit_svc=audit_service,
+                rbac_mw=rbac_middleware,
+                logger=logger
+            )
+        else:
+            logger.warning("Cannot initialize admin routes: required services not available")
 
         # Initialize password recovery routes
-        init_password_recovery_routes(
-            admin_svc=admin_service,
-            jwt_svc=jwt_service,
-            email_svc=email_service,
-            audit_svc=audit_service,
-            logger=logger
-        )
+        if admin_service and jwt_service and email_service and audit_service:
+            init_password_recovery_routes(
+                admin_svc=admin_service,
+                jwt_svc=jwt_service,
+                email_svc=email_service,
+                audit_svc=audit_service,
+                logger=logger
+            )
+        else:
+            logger.warning("Cannot initialize password recovery routes: required services not available")
 
         logger.info("Route modules initialized successfully")
     except Exception as e:
-        logger.error(f"Route module initialization failed: {e}")
+        logger.error("Route module initialization failed: %s", e)
 
     # Initialize middleware
     try:
@@ -157,14 +179,14 @@ def create_app(config_name: str = None) -> Flask:
 
         logger.info("Middleware initialized successfully")
     except Exception as e:
-        logger.error(f"Middleware initialization failed: {e}")
+        logger.error("Middleware initialization failed: %s", e)
 
     # Initialize rate limiting
     try:
         init_rate_limiter(app)
         logger.info("Rate limiter initialized successfully")
     except Exception as e:
-        logger.warning(f"Rate limiter initialization failed: {e}")
+        logger.warning("Rate limiter initialization failed: %s", e)
 
     # Register blueprints
     app.register_blueprint(api_bp)
@@ -211,18 +233,18 @@ def create_app(config_name: str = None) -> Flask:
             return None
 
         except Exception as e:
-            logger.error(f"Global request validation error: {e}")
+            logger.error("Global request validation error: %s", e)
             return None
 
     logger.info("Flask application created successfully with JWT authentication")
     return app
 
 
-def register_error_handlers(app: Flask) -> None:
+def register_error_handlers(application: Flask) -> None:
     """Register application error handlers"""
 
-    @app.errorhandler(404)
-    def not_found(error):
+    @application.errorhandler(404)
+    def not_found(_error):
         if request.path.startswith('/api/'):
             return {
                 "success": False,
@@ -231,9 +253,9 @@ def register_error_handlers(app: Flask) -> None:
             }, 404
         return render_template('404.html'), 404
 
-    @app.errorhandler(500)
-    def internal_error(error):
-        app.logger.error(f"Internal server error: {error}")
+    @application.errorhandler(500)
+    def internal_error(_error):
+        application.logger.error("Internal server error: %s", _error)
         if request.path.startswith('/api/'):
             return {
                 "success": False,
@@ -242,8 +264,8 @@ def register_error_handlers(app: Flask) -> None:
             }, 500
         return render_template('500.html'), 500
 
-    @app.errorhandler(401)
-    def unauthorized(error):
+    @application.errorhandler(401)
+    def unauthorized(_error):
         if request.path.startswith('/api/'):
             return {
                 "success": False,
@@ -252,8 +274,8 @@ def register_error_handlers(app: Flask) -> None:
             }, 401
         return render_template('401.html'), 401
 
-    @app.errorhandler(403)
-    def forbidden(error):
+    @application.errorhandler(403)
+    def forbidden(_error):
         if request.path.startswith('/api/'):
             return {
                 "success": False,
@@ -263,15 +285,15 @@ def register_error_handlers(app: Flask) -> None:
         return render_template('403.html'), 403
 
 
-def register_main_routes(app: Flask) -> None:
+def register_main_routes(application: Flask) -> None:
     """Register main application routes"""
 
-    @app.route('/')
+    @application.route('/')
     def index():
         """Main page"""
         return render_template('index.html')
 
-    @app.route('/admin')
+    @application.route('/admin')
     def admin_redirect():
         """Redirect /admin to frontend admin panel"""
         # In production, this might redirect to your frontend admin panel
@@ -284,13 +306,13 @@ def register_main_routes(app: Flask) -> None:
             }
         }
 
-    @app.route('/api/status')
+    @application.route('/api/status')
     def api_status():
         """API status endpoint"""
         services_status = {}
 
-        if hasattr(app, 'services') and app.services:
-            for service_name, service in app.services.items():
+        if hasattr(application, 'services') and application.services:  # type: ignore
+            for service_name, service in application.services.items():  # type: ignore
                 try:
                     if hasattr(service, 'health_check'):
                         services_status[service_name] = service.health_check()
@@ -305,7 +327,7 @@ def register_main_routes(app: Flask) -> None:
             "data": {
                 "application": "WorkWave Coast",
                 "version": "1.0.0",
-                "environment": app.config.get('ENV', 'development'),
+                "environment": application.config.get('ENV', 'development'),
                 "authentication": "JWT with RBAC",
                 "services": services_status
             }
