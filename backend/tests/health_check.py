@@ -7,6 +7,12 @@ Verifies all dependencies and configurations before deployment
 import sys
 import os
 import traceback
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+project_root = Path(__file__).parent.parent.parent
+load_dotenv(project_root / '.env')
 
 def check_environment():
     """Check environment variables"""
