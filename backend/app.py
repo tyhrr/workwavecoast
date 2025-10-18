@@ -324,14 +324,54 @@ def register_main_routes(application: Flask) -> None:
     @application.route('/admin/')
     def admin_panel():
         """Serve admin panel login page"""
-        admin_panel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'admin-panel')
-        return send_from_directory(admin_panel_path, 'login.html')
+        try:
+            # Get the project root directory (one level up from backend)
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            admin_panel_path = os.path.join(project_root, 'frontend', 'admin-panel')
+
+            # Verify path exists
+            if not os.path.exists(admin_panel_path):
+                application.logger.error(f"Admin panel path not found: {admin_panel_path}")
+                return jsonify({
+                    "success": False,
+                    "message": "Admin panel not available",
+                    "error_type": "NotFound"
+                }), 404
+
+            return send_from_directory(admin_panel_path, 'login.html')
+        except Exception as e:
+            application.logger.error(f"Error serving admin panel: {e}")
+            return jsonify({
+                "success": False,
+                "message": "Error loading admin panel",
+                "error_type": "ServerError"
+            }), 500
 
     @application.route('/admin/<path:filename>')
     def admin_panel_files(filename):
         """Serve admin panel static files"""
-        admin_panel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'admin-panel')
-        return send_from_directory(admin_panel_path, filename)
+        try:
+            # Get the project root directory (one level up from backend)
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            admin_panel_path = os.path.join(project_root, 'frontend', 'admin-panel')
+
+            # Verify path exists
+            if not os.path.exists(admin_panel_path):
+                application.logger.error(f"Admin panel path not found: {admin_panel_path}")
+                return jsonify({
+                    "success": False,
+                    "message": "File not found",
+                    "error_type": "NotFound"
+                }), 404
+
+            return send_from_directory(admin_panel_path, filename)
+        except Exception as e:
+            application.logger.error(f"Error serving admin panel file {filename}: {e}")
+            return jsonify({
+                "success": False,
+                "message": "Error loading file",
+                "error_type": "ServerError"
+            }), 500
 
     @application.route('/api/status')
     def api_status():
