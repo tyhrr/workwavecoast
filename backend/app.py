@@ -3,7 +3,7 @@ WorkWave Coast Application
 Updated main application with JWT authentication and RBAC
 """
 import os
-from flask import Flask, render_template, request
+from flask import Flask, request
 from dotenv import load_dotenv
 
 # Load environment variables first
@@ -251,7 +251,11 @@ def register_error_handlers(application: Flask) -> None:
                 "message": "Endpoint not found",
                 "error_type": "NotFound"
             }, 404
-        return render_template('404.html'), 404
+        return {
+            "success": False,
+            "message": "Page not found",
+            "error_type": "NotFound"
+        }, 404
 
     @application.errorhandler(500)
     def internal_error(_error):
@@ -262,7 +266,11 @@ def register_error_handlers(application: Flask) -> None:
                 "message": "Internal server error",
                 "error_type": "ServerError"
             }, 500
-        return render_template('500.html'), 500
+        return {
+            "success": False,
+            "message": "Internal server error",
+            "error_type": "ServerError"
+        }, 500
 
     @application.errorhandler(401)
     def unauthorized(_error):
@@ -272,7 +280,11 @@ def register_error_handlers(application: Flask) -> None:
                 "message": "Authentication required",
                 "error_type": "Unauthorized"
             }, 401
-        return render_template('401.html'), 401
+        return {
+            "success": False,
+            "message": "Authentication required",
+            "error_type": "Unauthorized"
+        }, 401
 
     @application.errorhandler(403)
     def forbidden(_error):
@@ -282,7 +294,11 @@ def register_error_handlers(application: Flask) -> None:
                 "message": "Access forbidden",
                 "error_type": "Forbidden"
             }, 403
-        return render_template('403.html'), 403
+        return {
+            "success": False,
+            "message": "Access forbidden",
+            "error_type": "Forbidden"
+        }, 403
 
 
 def register_main_routes(application: Flask) -> None:
@@ -290,19 +306,28 @@ def register_main_routes(application: Flask) -> None:
 
     @application.route('/')
     def index():
-        """Main page"""
-        return render_template('index.html')
+        """Main page - API documentation"""
+        return {
+            "message": "WorkWave Coast API",
+            "version": "1.0.0",
+            "endpoints": {
+                "api": "/api",
+                "admin": "/api/admin",
+                "files": "/api/files",
+                "health": "/api/health"
+            }
+        }
 
     @application.route('/admin')
     def admin_redirect():
-        """Redirect /admin to frontend admin panel"""
-        # In production, this might redirect to your frontend admin panel
+        """Admin panel information"""
         return {
             "message": "Admin panel available at /api/admin endpoints",
             "endpoints": {
                 "login": "POST /api/admin/auth/login",
                 "dashboard": "GET /api/admin/dashboard",
-                "profile": "GET /api/admin/profile"
+                "profile": "GET /api/admin/profile",
+                "applications": "GET /api/admin/applications"
             }
         }
 
