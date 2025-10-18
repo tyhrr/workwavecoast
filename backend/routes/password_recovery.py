@@ -278,7 +278,9 @@ def change_password():
                 'success': False,
                 'message': 'Authentication required',
                 'error_type': 'NotAuthenticated'
-            }), 401        data = request.get_json()
+            }), 401
+        
+        data = request.get_json()
         if not data:
             return jsonify({
                 'success': False,
