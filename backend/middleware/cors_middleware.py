@@ -181,7 +181,7 @@ class SecurityHeaders:
         # Default security headers
         self.config = {
             'content_security_policy': kwargs.get('content_security_policy',
-                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"),
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:"),
             'x_content_type_options': kwargs.get('x_content_type_options', 'nosniff'),
             'x_frame_options': kwargs.get('x_frame_options', 'DENY'),
             'x_xss_protection': kwargs.get('x_xss_protection', '1; mode=block'),
@@ -302,7 +302,7 @@ def setup_cors_and_security(app, cors_config: Dict = None, security_config: Dict
     }
 
     default_security = {
-        'content_security_policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        'content_security_policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:",
         'x_frame_options': 'SAMEORIGIN',  # Less restrictive for embedded content
         'x_content_type_options': 'nosniff'
     }
