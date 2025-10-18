@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Panel de Administración</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🏖️ WorkWave Coast - Panel de Administración</h1>
+        <div class="header-actions">
+            <span id="adminUsername" class="admin-name"></span>
+            <button id="logoutBtn" class="logout">Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Statistics Cards -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3>📊 Total Aplicaciones</h3>
+                <p id="totalCount" class="stat-number">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>📅 Hoy</h3>
+                <p id="todayCount" class="stat-number stat-success">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>⏳ Pendientes</h3>
+                <p id="pendingCount" class="stat-number stat-warning">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>✅ Aprobadas</h3>
+                <p id="approvedCount" class="stat-number stat-approved">0</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <input type="text" id="searchInput" placeholder="Buscar por nombre, email o teléfono..." class="search-input">
+            <select id="statusFilter" class="filter-select">
+                <option value="">Todos los estados</option>
+                <option value="pending">Pendientes</option>
+                <option value="approved">Aprobadas</option>
+                <option value="rejected">Rechazadas</option>
+            </select>
+            <select id="positionFilter" class="filter-select">
+                <option value="">Todos los puestos</option>
+            </select>
+            <button id="exportBtn" class="btn btn-secondary">📥 Exportar CSV</button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state">
+            <p>Cargando aplicaciones...</p>
+        </div>
+
+        <!-- Applications List -->
+        <div id="applicationsList" class="applications" style="display: none;">
+            <!-- Applications will be loaded here by JavaScript -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <p>No se encontraron aplicaciones.</p>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

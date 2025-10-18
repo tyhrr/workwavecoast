@@ -1,0 +1,460 @@
+/* ===========================
+   Global Styles
+   =========================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    background: #f5f5f5;
+    color: #333;
+}
+
+/* ===========================
+   Login Page Styles
+   =========================== */
+.login-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    width: 100%;
+}
+
+.logo {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #333;
+}
+
+.logo h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.logo p {
+    color: #666;
+    font-size: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn {
+    background: #667eea;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: #5a67d8;
+}
+
+.btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #28a745;
+    width: auto;
+}
+
+.btn-secondary:hover {
+    background: #218838;
+}
+
+.error {
+    color: #dc3545;
+    margin-top: 1rem;
+    text-align: center;
+    padding: 0.75rem;
+    background: #f8d7da;
+    border-radius: 5px;
+    border: 1px solid #f5c6cb;
+}
+
+.loading {
+    color: #667eea;
+    margin-top: 1rem;
+    text-align: center;
+    padding: 0.75rem;
+    background: #e7f3ff;
+    border-radius: 5px;
+}
+
+/* ===========================
+   Dashboard Header
+   =========================== */
+.header {
+    background: #667eea;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.admin-name {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+}
+
+.logout {
+    background: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.logout:hover {
+    background: #c82333;
+}
+
+/* ===========================
+   Dashboard Container
+   =========================== */
+.container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* ===========================
+   Statistics Cards
+   =========================== */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card h3 {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    margin: 0;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.stat-success {
+    color: #28a745;
+}
+
+.stat-warning {
+    color: #ffc107;
+}
+
+.stat-approved {
+    color: #17a2b8;
+}
+
+/* ===========================
+   Filters Section
+   =========================== */
+.filters {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 1rem;
+}
+
+.search-input,
+.filter-select {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.search-input:focus,
+.filter-select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* ===========================
+   Applications List
+   =========================== */
+.applications {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.application {
+    border-bottom: 1px solid #eee;
+    padding: 1.5rem;
+    transition: background 0.3s;
+}
+
+.application:last-child {
+    border-bottom: none;
+}
+
+.application:hover {
+    background: #f8f9fa;
+}
+
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.app-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.app-date {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.app-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.detail {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #667eea;
+}
+
+.detail strong {
+    color: #333;
+    font-weight: 600;
+}
+
+.files {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.files strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.file-link {
+    display: inline-block;
+    background: #28a745;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    text-decoration: none;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.file-link:hover {
+    background: #218838;
+}
+
+.status {
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status.approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status.rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ===========================
+   Action Buttons
+   =========================== */
+.app-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-approve {
+    background: #28a745;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.btn-approve:hover {
+    background: #218838;
+}
+
+.btn-reject {
+    background: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+}
+
+.btn-reject:hover {
+    background: #c82333;
+}
+
+/* ===========================
+   Loading & Empty States
+   =========================== */
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.loading-state p,
+.empty-state p {
+    font-size: 1.1rem;
+    color: #666;
+}
+
+/* ===========================
+   Responsive Design
+   =========================== */
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    .filters {
+        grid-template-columns: 1fr;
+    }
+
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .app-details {
+        grid-template-columns: 1fr;
+    }
+
+    .stats {
+        grid-template-columns: 1fr;
+    }
+}

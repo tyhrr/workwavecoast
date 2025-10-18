@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkWave Coast - Admin Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="logo">
+            <h1>🏖️ WorkWave Coast</h1>
+            <p>Panel de Administración</p>
+        </div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn">Iniciar Sesión</button>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            <div id="loadingMessage" class="loading" style="display: none;">Iniciando sesión...</div>
+        </form>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>
