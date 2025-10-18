@@ -47,7 +47,7 @@ class LoggingMiddleware:
             'user_agent': request.headers.get('User-Agent', ''),
             'content_type': request.content_type,
             'content_length': request.content_length,
-            'args': dict(request.args),
+            'query_args': dict(request.args),
             'endpoint': request.endpoint
         }
 
