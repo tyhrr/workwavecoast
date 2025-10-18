@@ -3,7 +3,7 @@ WorkWave Coast Application
 Updated main application with JWT authentication and RBAC
 """
 import os
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, jsonify
 from dotenv import load_dotenv
 
 # Load environment variables first
@@ -246,59 +246,59 @@ def register_error_handlers(application: Flask) -> None:
     @application.errorhandler(404)
     def not_found(_error):
         if request.path.startswith('/api/'):
-            return {
+            return jsonify({
                 "success": False,
                 "message": "Endpoint not found",
                 "error_type": "NotFound"
-            }, 404
-        return {
+            }), 404
+        return jsonify({
             "success": False,
             "message": "Page not found",
             "error_type": "NotFound"
-        }, 404
+        }), 404
 
     @application.errorhandler(500)
     def internal_error(_error):
         application.logger.error("Internal server error: %s", _error)
         if request.path.startswith('/api/'):
-            return {
+            return jsonify({
                 "success": False,
                 "message": "Internal server error",
                 "error_type": "ServerError"
-            }, 500
-        return {
+            }), 500
+        return jsonify({
             "success": False,
             "message": "Internal server error",
             "error_type": "ServerError"
-        }, 500
+        }), 500
 
     @application.errorhandler(401)
     def unauthorized(_error):
         if request.path.startswith('/api/'):
-            return {
+            return jsonify({
                 "success": False,
                 "message": "Authentication required",
                 "error_type": "Unauthorized"
-            }, 401
-        return {
+            }), 401
+        return jsonify({
             "success": False,
             "message": "Authentication required",
             "error_type": "Unauthorized"
-        }, 401
+        }), 401
 
     @application.errorhandler(403)
     def forbidden(_error):
         if request.path.startswith('/api/'):
-            return {
+            return jsonify({
                 "success": False,
                 "message": "Access forbidden",
                 "error_type": "Forbidden"
-            }, 403
-        return {
+            }), 403
+        return jsonify({
             "success": False,
             "message": "Access forbidden",
             "error_type": "Forbidden"
-        }, 403
+        }), 403
 
 
 def register_main_routes(application: Flask) -> None:
@@ -307,16 +307,18 @@ def register_main_routes(application: Flask) -> None:
     @application.route('/')
     def index():
         """Main page - API documentation"""
-        return {
+        return jsonify({
             "message": "WorkWave Coast API",
             "version": "1.0.0",
+            "status": "running",
             "endpoints": {
                 "api": "/api",
-                "admin": "/api/admin",
+                "admin": "/admin",
+                "admin_api": "/api/admin",
                 "files": "/api/files",
                 "health": "/api/health"
             }
-        }
+        })
 
     @application.route('/admin')
     @application.route('/admin/')
@@ -324,7 +326,7 @@ def register_main_routes(application: Flask) -> None:
         """Serve admin panel login page"""
         admin_panel_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'admin-panel')
         return send_from_directory(admin_panel_path, 'login.html')
-    
+
     @application.route('/admin/<path:filename>')
     def admin_panel_files(filename):
         """Serve admin panel static files"""
@@ -346,7 +348,7 @@ def register_main_routes(application: Flask) -> None:
                 except Exception as e:
                     services_status[service_name] = {"status": "error", "error": str(e)}
 
-        return {
+        return jsonify({
             "success": True,
             "message": "WorkWave Coast API is running",
             "data": {
@@ -356,7 +358,7 @@ def register_main_routes(application: Flask) -> None:
                 "authentication": "JWT with RBAC",
                 "services": services_status
             }
-        }
+        })
 
 
 # Production WSGI entry point
