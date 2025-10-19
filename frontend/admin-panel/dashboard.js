@@ -15,7 +15,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const username = localStorage.getItem('adminUsername');
 
     if (!token) {
-        window.location.href = 'login.html';
+        window.location.href = '/admin/login.html';
         return;
     }
 
@@ -335,7 +335,7 @@ async function exportToCSV() {
 function logout() {
     if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
         localStorage.clear();
-        window.location.href = 'login.html';
+        window.location.href = '/admin/login.html';
     }
 }
 

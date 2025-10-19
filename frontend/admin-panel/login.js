@@ -36,10 +36,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             localStorage.setItem('adminToken', data.data.access_token);
             localStorage.setItem('adminRefreshToken', data.data.refresh_token);
             localStorage.setItem('adminUsername', username);
-            localStorage.setItem('adminRole', data.data.role || 'admin');
+            localStorage.setItem('adminRole', data.data.admin.role || 'admin');
 
-            // Redirect to dashboard
-            window.location.href = 'dashboard.html';
+            // Redirect to dashboard (use absolute path)
+            window.location.href = '/admin/dashboard.html';
         } else {
             throw new Error(data.message || 'Error de autenticación');
         }
@@ -66,7 +66,7 @@ window.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                window.location.href = 'dashboard.html';
+                window.location.href = '/admin/dashboard.html';
             } else {
                 // Token invalid, clear storage
                 localStorage.clear();
