@@ -209,11 +209,34 @@ function createApplicationRow(app) {
     const languagesText = languages.join(', ') || 'N/A';
 
     // Prepare additional positions (horizontal with commas)
-    const puestos = [app.puesto];
-    if (app.puestos_adicionales && app.puestos_adicionales.length > 0) {
-        puestos.push(...app.puestos_adicionales);
+    const puestos = [];
+    
+    // Add main position
+    if (app.puesto) {
+        puestos.push(app.puesto);
     }
-    const puestosText = puestos.filter(p => p).join(', ') || 'N/A';
+    
+    // Add additional positions - handle different formats
+    if (app.puestos_adicionales) {
+        if (Array.isArray(app.puestos_adicionales)) {
+            // Already an array
+            puestos.push(...app.puestos_adicionales);
+        } else if (typeof app.puestos_adicionales === 'string') {
+            // Parse string - could be JSON array or comma-separated
+            try {
+                const parsed = JSON.parse(app.puestos_adicionales);
+                if (Array.isArray(parsed)) {
+                    puestos.push(...parsed);
+                }
+            } catch (e) {
+                // Not JSON, try splitting by comma
+                const split = app.puestos_adicionales.split(',').map(p => p.trim()).filter(p => p);
+                puestos.push(...split);
+            }
+        }
+    }
+    
+    const puestosText = puestos.filter(p => p && p.trim()).join(', ') || 'N/A';
 
     // Parse files from database (can be string or object)
     let filesData = {};
@@ -252,12 +275,12 @@ function createApplicationRow(app) {
                 <button class="btn-detail" onclick="showExperience('${app._id || app.id}', \`${(app.experiencia || 'Sin información').replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`)">
                     📝 Detalle
                 </button>
-                <button class="btn-cv ${hasCv ? '' : 'disabled'}" 
+                <button class="btn-cv ${hasCv ? '' : 'disabled'}"
                         onclick="${hasCv ? `window.open('${cvUrl}', '_blank')` : 'return false'}"
                         ${!hasCv ? 'disabled' : ''}>
                     📄 Ver CV
                 </button>
-                <button class="btn-docs ${hasOtherDocs ? '' : 'disabled'}" 
+                <button class="btn-docs ${hasOtherDocs ? '' : 'disabled'}"
                         onclick="${hasOtherDocs ? `window.open('${otherDocsUrl}', '_blank')` : 'return false'}"
                         ${!hasOtherDocs ? 'disabled' : ''}>
                     📎 Ver Otros Docs
