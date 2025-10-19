@@ -1,6 +1,6 @@
 // Admin Login Script
 // Use relative URLs when served from same domain, otherwise use full API URL
-const API_URL = window.location.hostname.includes('onrender.com') 
+const API_URL = window.location.hostname.includes('onrender.com')
     ? '' // Use relative URLs when on Render
     : window.location.hostname === 'localhost'
     ? 'http://localhost:5000'

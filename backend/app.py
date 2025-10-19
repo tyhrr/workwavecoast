@@ -358,20 +358,27 @@ def register_main_routes(application: Flask) -> None:
             # Verify path exists
             if not os.path.exists(admin_panel_path):
                 application.logger.error(f"Admin panel path not found: {admin_panel_path}")
-                return jsonify({
-                    "success": False,
-                    "message": "File not found",
-                    "error_type": "NotFound"
-                }), 404
+                return "Admin panel not found", 404
 
-            return send_from_directory(admin_panel_path, filename)
+            # Check if file exists before sending
+            file_path = os.path.join(admin_panel_path, filename)
+            if not os.path.exists(file_path):
+                application.logger.warning(f"Admin panel file not found: {filename}")
+                return "File not found", 404
+
+            # Set correct MIME types for static files
+            mimetype = None
+            if filename.endswith('.css'):
+                mimetype = 'text/css'
+            elif filename.endswith('.js'):
+                mimetype = 'application/javascript'
+            elif filename.endswith('.html'):
+                mimetype = 'text/html'
+
+            return send_from_directory(admin_panel_path, filename, mimetype=mimetype)
         except Exception as e:
             application.logger.error(f"Error serving admin panel file {filename}: {e}")
-            return jsonify({
-                "success": False,
-                "message": "Error loading file",
-                "error_type": "ServerError"
-            }), 500
+            return "Error loading file", 500
 
     @application.route('/api/status')
     def api_status():

@@ -51,8 +51,8 @@ admin-panel/
 En `login.js` y `dashboard.js`, la URL de la API se configura automáticamente:
 
 ```javascript
-const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000' 
+const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
     : 'https://workwavecoast-backend.onrender.com';
 ```
 
