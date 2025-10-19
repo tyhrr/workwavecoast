@@ -332,44 +332,45 @@ def get_applications():
     try:
         # Get query parameters
         page = request.args.get('page', 1, type=int)
-        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        per_page = min(request.args.get('per_page', 100, type=int), 100)
         status = request.args.get('status')
         position = request.args.get('position')
 
-        # Use application service to get applications
-        # This would typically include additional admin-only fields
-        filters = {}
+        # Build query params for ApplicationService
+        query_params = {
+            'page': page,
+            'per_page': per_page
+        }
+
         if status:
-            filters['status'] = status
+            query_params['status'] = status
         if position:
-            filters['position'] = position
+            query_params['puesto'] = position
 
-        # Note: This assumes ApplicationService has an admin-specific method
-        # In practice, you might need to modify ApplicationService or create an admin version
+        # Get applications from database using application_service
+        if application_service:
+            result = application_service.get_applications(query_params=query_params)
 
-        # Log applications access
-        if audit_service:
-            rbac_middleware.log_admin_action('applications_access', {
-                'page': page,
-                'per_page': per_page,
-                'filters': filters
-            })
+            if not result['success']:
+                return jsonify(result), 500
 
-        # For now, return mock data structure
-        return jsonify({
-            'success': True,
-            'message': 'Applications retrieved successfully',
-            'data': {
-                'applications': [],
-                'pagination': {
+            # Log applications access
+            if audit_service:
+                rbac_middleware.log_admin_action('applications_access', {
                     'page': page,
                     'per_page': per_page,
-                    'total': 0,
-                    'pages': 0
-                },
-                'filters': filters
-            }
-        }), 200
+                    'status': status,
+                    'position': position,
+                    'total_found': result.get('data', {}).get('total', 0)
+                })
+
+            return jsonify(result), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Application service not available',
+                'error_type': 'ServiceError'
+            }), 500
 
     except Exception as e:
         logging.error(f"Get applications error: {e}")
