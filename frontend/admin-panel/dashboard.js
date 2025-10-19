@@ -171,65 +171,89 @@ function displayApplications() {
     emptyState.style.display = 'none';
     container.style.display = 'block';
 
-    container.innerHTML = filteredApplications.map(app => createApplicationCard(app)).join('');
+    // Create table structure
+    container.innerHTML = `
+        <table class="applications-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Contacto</th>
+                    <th>Nacionalidad</th>
+                    <th>Puesto/s</th>
+                    <th>Idiomas</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filteredApplications.map(app => createApplicationRow(app)).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
-// Create HTML for a single application card
-function createApplicationCard(app) {
-    const createdDate = app.created_at ? new Date(app.created_at).toLocaleString('es-ES') : 'N/A';
+// Create HTML for a single application row
+function createApplicationRow(app) {
     const statusClass = app.status || 'pending';
     const statusText = app.status === 'pending' ? 'Pendiente' :
                       app.status === 'approved' ? 'Aprobada' :
                       app.status === 'rejected' ? 'Rechazada' : 'Desconocido';
 
-    let filesHTML = '';
-    if (app.files && typeof app.files === 'object') {
-        const fileEntries = Object.entries(app.files).filter(([_, fileInfo]) => fileInfo && fileInfo.url);
-        if (fileEntries.length > 0) {
-            filesHTML = `
-                <div class="files">
-                    <strong>📎 Archivos adjuntos:</strong>
-                    ${fileEntries.map(([fileType, fileInfo]) => {
-                        const sizeKB = fileInfo.bytes ? (fileInfo.bytes / 1024).toFixed(1) : '?';
-                        return `<a href="${fileInfo.url}" target="_blank" class="file-link">
-                            📄 ${fileType.charAt(0).toUpperCase() + fileType.slice(1)} (${sizeKB}KB)
-                        </a>`;
-                    }).join('')}
-                </div>
-            `;
-        }
+    // Prepare languages info
+    const languages = [];
+    if (app.ingles_nivel) languages.push(`🇬🇧 Inglés: ${app.ingles_nivel}`);
+    if (app.espanol_nivel) languages.push(`🇪🇸 Español: ${app.espanol_nivel}`);
+    if (app.otro_idioma && app.otro_idioma_nivel) {
+        languages.push(`🗣️ ${app.otro_idioma}: ${app.otro_idioma_nivel}`);
     }
+    const languagesText = languages.join('<br>') || 'N/A';
+
+    // Prepare additional positions
+    const puestos = [app.puesto];
+    if (app.puestos_adicionales && app.puestos_adicionales.length > 0) {
+        puestos.push(...app.puestos_adicionales);
+    }
+    const puestosText = puestos.filter(p => p).join('<br>') || 'N/A';
+
+    // Get file URLs
+    const cvUrl = app.files?.cv?.url || app.files?.curriculum?.url || '#';
+    const otherDocsUrl = app.files?.additional?.url || app.files?.documentos_adicionales?.url || '#';
+    const hasCv = cvUrl !== '#';
+    const hasOtherDocs = otherDocsUrl !== '#';
 
     return `
-        <div class="application" data-id="${app._id || app.id}">
-            <div class="app-header">
-                <div class="app-name">${app.nombre || ''} ${app.apellido || ''}</div>
-                <div class="app-date">${createdDate}</div>
-            </div>
-
-            <div class="app-details">
-                <div class="detail"><strong>📧 Email:</strong> ${app.email || 'N/A'}</div>
-                <div class="detail"><strong>📱 Teléfono:</strong> ${app.telefono || 'N/A'}</div>
-                <div class="detail"><strong>🌍 Nacionalidad:</strong> ${app.nacionalidad || 'N/A'}</div>
-                <div class="detail"><strong>💼 Puesto:</strong> ${app.puesto || 'N/A'}</div>
-                <div class="detail"><strong>🇪🇸 Español:</strong> ${app.espanol_nivel || 'N/A'}</div>
-                <div class="detail"><strong>🇬🇧 Inglés:</strong> ${app.ingles_nivel || 'N/A'}</div>
-                ${app.otro_idioma ? `<div class="detail"><strong>🗣️ ${app.otro_idioma}:</strong> ${app.otro_idioma_nivel || 'N/A'}</div>` : ''}
-                <div class="detail">
-                    <strong>📊 Estado:</strong>
-                    <span class="status ${statusClass}">${statusText}</span>
-                </div>
-            </div>
-
-            ${filesHTML}
-
-            ${app.status === 'pending' ? `
-                <div class="app-actions">
+        <tr data-id="${app._id || app.id}">
+            <td class="name-cell">${app.nombre || ''} ${app.apellido || ''}</td>
+            <td class="contact-cell">
+                📧 ${app.email || 'N/A'}<br>
+                📱 ${app.telefono || 'N/A'}
+            </td>
+            <td>${app.nacionalidad || 'N/A'}</td>
+            <td class="positions-cell">${puestosText}</td>
+            <td class="languages-cell">${languagesText}</td>
+            <td>
+                <span class="status ${statusClass}">${statusText}</span>
+            </td>
+            <td class="actions-cell">
+                <button class="btn-detail" onclick="showExperience('${app._id || app.id}', \`${(app.experiencia || 'Sin información').replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`)">
+                    📝 Detalle
+                </button>
+                <button class="btn-cv ${hasCv ? '' : 'disabled'}" 
+                        onclick="${hasCv ? `window.open('${cvUrl}', '_blank')` : 'return false'}"
+                        ${!hasCv ? 'disabled' : ''}>
+                    📄 Ver CV
+                </button>
+                <button class="btn-docs ${hasOtherDocs ? '' : 'disabled'}" 
+                        onclick="${hasOtherDocs ? `window.open('${otherDocsUrl}', '_blank')` : 'return false'}"
+                        ${!hasOtherDocs ? 'disabled' : ''}>
+                    📎 Ver Otros Docs
+                </button>
+                ${app.status === 'pending' ? `
                     <button class="btn-approve" onclick="approveApplication('${app._id || app.id}')">✅ Aprobar</button>
                     <button class="btn-reject" onclick="rejectApplication('${app._id || app.id}')">❌ Rechazar</button>
-                </div>
-            ` : ''}
-        </div>
+                ` : ''}
+            </td>
+        </tr>
     `;
 }
 
@@ -339,6 +363,43 @@ function logout() {
     }
 }
 
+// Show experience details in a modal
+function showExperience(applicationId, experiencia) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('experienceModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'experienceModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📝 Experiencia Laboral</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body" id="experienceContent"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Close modal when clicking X or outside
+        modal.querySelector('.close-modal').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    }
+
+    // Set content and show modal
+    const content = document.getElementById('experienceContent');
+    content.innerHTML = `<p>${experiencia.replace(/\n/g, '<br>') || 'Sin información de experiencia proporcionada.'}</p>`;
+    modal.style.display = 'flex';
+}
+
 // Make functions available globally for onclick handlers
 window.approveApplication = approveApplication;
 window.rejectApplication = rejectApplication;
+window.showExperience = showExperience;

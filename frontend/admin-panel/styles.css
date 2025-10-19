@@ -266,88 +266,120 @@ body {
 .applications {
     background: white;
     border-radius: 8px;
-    overflow: hidden;
+    overflow-x: auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.application {
+.applications-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+.applications-table thead {
+    background: #667eea;
+    color: white;
+}
+
+.applications-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.applications-table tbody tr {
     border-bottom: 1px solid #eee;
-    padding: 1.5rem;
-    transition: background 0.3s;
+    transition: background 0.2s;
 }
 
-.application:last-child {
-    border-bottom: none;
-}
-
-.application:hover {
+.applications-table tbody tr:hover {
     background: #f8f9fa;
 }
 
-.app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.app-name {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #333;
-}
-
-.app-date {
-    color: #666;
+.applications-table td {
+    padding: 1rem;
+    vertical-align: top;
     font-size: 0.9rem;
 }
 
-.app-details {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.detail {
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border-left: 3px solid #667eea;
-}
-
-.detail strong {
-    color: #333;
+.name-cell {
     font-weight: 600;
-}
-
-.files {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #eee;
-}
-
-.files strong {
-    display: block;
-    margin-bottom: 0.5rem;
     color: #333;
+    min-width: 150px;
 }
 
-.file-link {
-    display: inline-block;
+.contact-cell {
+    min-width: 200px;
+    line-height: 1.6;
+}
+
+.positions-cell,
+.languages-cell {
+    line-height: 1.8;
+    min-width: 150px;
+}
+
+.actions-cell {
+    min-width: 400px;
+}
+
+.actions-cell button {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    text-align: left;
+}
+
+.actions-cell button:last-child {
+    margin-bottom: 0;
+}
+
+.btn-detail {
+    background: #667eea;
+    color: white;
+}
+
+.btn-detail:hover {
+    background: #5a67d8;
+}
+
+.btn-cv {
     background: #28a745;
     color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 5px;
-    text-decoration: none;
-    margin-right: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    transition: background 0.3s;
 }
 
-.file-link:hover {
+.btn-cv:hover {
     background: #218838;
+}
+
+.btn-cv.disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-docs {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-docs:hover {
+    background: #138496;
+}
+
+.btn-docs.disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .status {
@@ -356,6 +388,7 @@ body {
     font-size: 0.85rem;
     font-weight: 600;
     display: inline-block;
+    white-space: nowrap;
 }
 
 .status.pending {
@@ -376,40 +409,89 @@ body {
 /* ===========================
    Action Buttons
    =========================== */
-.app-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
 .btn-approve {
-    background: #28a745;
+    background: #28a745 !important;
     color: white;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.3s;
 }
 
 .btn-approve:hover {
-    background: #218838;
+    background: #218838 !important;
 }
 
 .btn-reject {
-    background: #dc3545;
+    background: #dc3545 !important;
     color: white;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.3s;
 }
 
 .btn-reject:hover {
-    background: #c82333;
+    background: #c82333 !important;
+}
+
+/* ===========================
+   Modal Styles
+   =========================== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 10px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.close-modal {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #999;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.3s;
+}
+
+.close-modal:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    line-height: 1.8;
+    color: #333;
+}
+
+.modal-body p {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 /* ===========================
