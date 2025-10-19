@@ -393,28 +393,61 @@ body {
     opacity: 0.6;
 }
 
-.status {
-    padding: 0.35rem 0.75rem;
-    border-radius: 20px;
+/* ===========================
+   Status Checkboxes
+   =========================== */
+.status-cell {
+    min-width: 180px;
+}
+
+.status-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    margin-bottom: 0.4rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f8f9fa;
+}
+
+.status-checkbox:last-child {
+    margin-bottom: 0;
+}
+
+.status-checkbox:hover {
+    background: #e9ecef;
+}
+
+.status-checkbox input[type="checkbox"] {
+    margin-right: 0.5rem;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.status-checkbox span {
     font-size: 0.85rem;
-    font-weight: 600;
-    display: inline-block;
-    white-space: nowrap;
+    font-weight: 500;
+    user-select: none;
 }
 
-.status.pending {
-    background: #fff3cd;
-    color: #856404;
+/* No cumple - special styling */
+.status-checkbox.no-cumple {
+    background: #ffcccc;
 }
 
-.status.approved {
-    background: #d4edda;
-    color: #155724;
+.status-checkbox.no-cumple:hover {
+    background: #ffb3b3;
 }
 
-.status.rejected {
-    background: #f8d7da;
-    color: #721c24;
+.status-checkbox.no-cumple.checked {
+    background: #dc3545;
+    color: white;
+}
+
+.status-checkbox.no-cumple.checked:hover {
+    background: #c82333;
 }
 
 /* ===========================

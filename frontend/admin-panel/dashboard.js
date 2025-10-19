@@ -210,12 +210,12 @@ function createApplicationRow(app) {
 
     // Prepare additional positions (horizontal with commas)
     const puestos = [];
-    
+
     // Add main position
     if (app.puesto) {
         puestos.push(app.puesto);
     }
-    
+
     // Add additional positions - handle different formats
     if (app.puestos_adicionales) {
         if (Array.isArray(app.puestos_adicionales)) {
@@ -235,7 +235,7 @@ function createApplicationRow(app) {
             }
         }
     }
-    
+
     const puestosText = puestos.filter(p => p && p.trim()).join(', ') || 'N/A';
 
     // Parse files from database (can be string or object)
@@ -258,6 +258,11 @@ function createApplicationRow(app) {
     const hasCv = cvUrl !== '#' && cvUrl;
     const hasOtherDocs = otherDocsUrl !== '#' && otherDocsUrl;
 
+    // Get status checkboxes states
+    const isContactado = app.contactado || false;
+    const isEnProceso = app.en_proceso || false;
+    const isNoCumple = app.no_cumple || false;
+
     return `
         <tr data-id="${app._id || app.id}">
             <td class="name-cell">${app.nombre || ''} ${app.apellido || ''}</td>
@@ -268,14 +273,28 @@ function createApplicationRow(app) {
             <td>${app.nacionalidad || 'N/A'}</td>
             <td class="positions-cell">${puestosText}</td>
             <td class="languages-cell">${languagesText}</td>
-            <td>
-                <span class="status ${statusClass}">${statusText}</span>
+            <td class="status-cell">
+                <label class="status-checkbox">
+                    <input type="checkbox" ${isContactado ? 'checked' : ''} 
+                           onchange="updateStatus('${app._id || app.id}', 'contactado', this.checked)">
+                    <span>Contactado</span>
+                </label>
+                <label class="status-checkbox">
+                    <input type="checkbox" ${isEnProceso ? 'checked' : ''} 
+                           onchange="updateStatus('${app._id || app.id}', 'en_proceso', this.checked)">
+                    <span>En proceso</span>
+                </label>
+                <label class="status-checkbox no-cumple ${isNoCumple ? 'checked' : ''}">
+                    <input type="checkbox" ${isNoCumple ? 'checked' : ''} 
+                           onchange="updateStatus('${app._id || app.id}', 'no_cumple', this.checked)">
+                    <span>No cumple</span>
+                </label>
             </td>
             <td class="actions-cell">
                 <button class="btn-detail" onclick="showExperience('${app._id || app.id}', \`${(app.experiencia || 'Sin información').replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`)">
                     📝 Detalle
                 </button>
-                <button class="btn-cv ${hasCv ? '' : 'disabled'}"
+                <button class="btn-cv ${hasCv ? '' : 'disabled'}" 
                         onclick="${hasCv ? `window.open('${cvUrl}', '_blank')` : 'return false'}"
                         ${!hasCv ? 'disabled' : ''}>
                     📄 Ver CV
@@ -432,7 +451,55 @@ function showExperience(applicationId, experiencia) {
     modal.style.display = 'flex';
 }
 
+// Update application status
+async function updateStatus(applicationId, statusField, isChecked) {
+    const token = localStorage.getItem('adminToken');
+    
+    try {
+        const response = await fetch(`${API_URL}/api/admin/applications/${applicationId}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                [statusField]: isChecked
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al actualizar estado');
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update the visual state
+            const checkbox = event.target;
+            const label = checkbox.closest('.status-checkbox');
+            
+            if (statusField === 'no_cumple') {
+                if (isChecked) {
+                    label.classList.add('checked');
+                } else {
+                    label.classList.remove('checked');
+                }
+            }
+            
+            console.log('Estado actualizado correctamente');
+        } else {
+            throw new Error(data.message || 'Error al actualizar');
+        }
+    } catch (error) {
+        console.error('Error updating status:', error);
+        alert(`Error al actualizar estado: ${error.message}`);
+        // Revert checkbox state
+        event.target.checked = !isChecked;
+    }
+}
+
 // Make functions available globally for onclick handlers
 window.approveApplication = approveApplication;
 window.rejectApplication = rejectApplication;
 window.showExperience = showExperience;
+window.updateStatus = updateStatus;

@@ -416,6 +416,55 @@ def get_application(application_id: str):
             'error_type': 'ServerError'
         }), 500
 
+@admin_bp.route('/applications/<application_id>', methods=['PATCH'])
+@require_admin_auth
+@require_permission('write')
+def update_application(application_id: str):
+    """Update application fields (status checkboxes, etc)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'Request body is required',
+                'error_type': 'InvalidRequest'
+            }), 400
+
+        # Use application service to update
+        if application_service:
+            result = application_service.update_application(application_id, data)
+            
+            if result['success']:
+                # Log the update
+                if audit_service:
+                    audit_service.log_application_action(
+                        admin_id=g.current_admin_id,
+                        username=g.current_admin['username'],
+                        role=g.current_admin_role,
+                        action='update',
+                        application_id=application_id,
+                        ip_address=request.remote_addr,
+                        details=data
+                    )
+                
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Application service not available',
+                'error_type': 'ServiceError'
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Update application error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error_type': 'ServerError'
+        }), 500
+
 @admin_bp.route('/audit/logs', methods=['GET'])
 @require_admin_auth
 @require_permission('read')
