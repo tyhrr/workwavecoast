@@ -172,7 +172,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
         setup_cors_and_security(app, cors_config)
 
         # Initialize other middleware
-        AuthMiddleware(app)
+        # AuthMiddleware(app)  # Disabled - RBAC decorators handle authentication
         ValidationMiddleware(app)
         # ErrorMiddleware(app)  # Temporarily disabled - conflicts with error handlers
         LoggingMiddleware(app)
