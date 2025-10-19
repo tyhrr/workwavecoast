@@ -59,8 +59,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (token) {
         // Verify token is still valid
         fetch(`${API_URL}/api/admin/auth/verify`, {
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         })
         .then(res => res.json())
