@@ -199,34 +199,48 @@ function createApplicationRow(app) {
                       app.status === 'approved' ? 'Aprobada' :
                       app.status === 'rejected' ? 'Rechazada' : 'Desconocido';
 
-    // Prepare languages info
+    // Prepare languages info (horizontal with commas)
     const languages = [];
-    if (app.ingles_nivel) languages.push(`🇬🇧 Inglés: ${app.ingles_nivel}`);
-    if (app.espanol_nivel) languages.push(`🇪🇸 Español: ${app.espanol_nivel}`);
+    if (app.ingles_nivel) languages.push(`Inglés: ${app.ingles_nivel}`);
+    if (app.espanol_nivel) languages.push(`Español: ${app.espanol_nivel}`);
     if (app.otro_idioma && app.otro_idioma_nivel) {
-        languages.push(`🗣️ ${app.otro_idioma}: ${app.otro_idioma_nivel}`);
+        languages.push(`${app.otro_idioma}: ${app.otro_idioma_nivel}`);
     }
-    const languagesText = languages.join('<br>') || 'N/A';
+    const languagesText = languages.join(', ') || 'N/A';
 
-    // Prepare additional positions
+    // Prepare additional positions (horizontal with commas)
     const puestos = [app.puesto];
     if (app.puestos_adicionales && app.puestos_adicionales.length > 0) {
         puestos.push(...app.puestos_adicionales);
     }
-    const puestosText = puestos.filter(p => p).join('<br>') || 'N/A';
+    const puestosText = puestos.filter(p => p).join(', ') || 'N/A';
 
-    // Get file URLs
-    const cvUrl = app.files?.cv?.url || app.files?.curriculum?.url || '#';
-    const otherDocsUrl = app.files?.additional?.url || app.files?.documentos_adicionales?.url || '#';
-    const hasCv = cvUrl !== '#';
-    const hasOtherDocs = otherDocsUrl !== '#';
+    // Parse files from database (can be string or object)
+    let filesData = {};
+    if (app.files) {
+        if (typeof app.files === 'string') {
+            try {
+                filesData = JSON.parse(app.files);
+            } catch (e) {
+                console.error('Error parsing files:', e);
+            }
+        } else {
+            filesData = app.files;
+        }
+    }
+
+    // Get file URLs from parsed data
+    const cvUrl = filesData.cv?.url || filesData.curriculum?.url || app.cv_url || '#';
+    const otherDocsUrl = filesData.documentos_adicionales?.url || filesData.additional?.url || app.documentos_adicionales_url || '#';
+    const hasCv = cvUrl !== '#' && cvUrl;
+    const hasOtherDocs = otherDocsUrl !== '#' && otherDocsUrl;
 
     return `
         <tr data-id="${app._id || app.id}">
             <td class="name-cell">${app.nombre || ''} ${app.apellido || ''}</td>
             <td class="contact-cell">
-                📧 ${app.email || 'N/A'}<br>
-                📱 ${app.telefono || 'N/A'}
+                <div>📧 ${app.email || 'N/A'}</div>
+                <div>📱 ${app.telefono || 'N/A'}</div>
             </td>
             <td>${app.nacionalidad || 'N/A'}</td>
             <td class="positions-cell">${puestosText}</td>
@@ -248,10 +262,6 @@ function createApplicationRow(app) {
                         ${!hasOtherDocs ? 'disabled' : ''}>
                     📎 Ver Otros Docs
                 </button>
-                ${app.status === 'pending' ? `
-                    <button class="btn-approve" onclick="approveApplication('${app._id || app.id}')">✅ Aprobar</button>
-                    <button class="btn-reject" onclick="rejectApplication('${app._id || app.id}')">❌ Rechazar</button>
-                ` : ''}
             </td>
         </tr>
     `;

@@ -302,12 +302,16 @@ body {
     padding: 1rem;
     vertical-align: top;
     font-size: 0.9rem;
+    max-width: 250px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .name-cell {
     font-weight: 600;
     color: #333;
     min-width: 150px;
+    white-space: normal;
 }
 
 .contact-cell {
@@ -315,14 +319,21 @@ body {
     line-height: 1.6;
 }
 
+.contact-cell div {
+    margin-bottom: 0.25rem;
+}
+
 .positions-cell,
 .languages-cell {
-    line-height: 1.8;
-    min-width: 150px;
+    line-height: 1.6;
+    min-width: 180px;
+    max-width: 250px;
+    white-space: normal;
 }
 
 .actions-cell {
-    min-width: 400px;
+    min-width: 200px;
+    max-width: 200px;
 }
 
 .actions-cell button {
@@ -404,27 +415,6 @@ body {
 .status.rejected {
     background: #f8d7da;
     color: #721c24;
-}
-
-/* ===========================
-   Action Buttons
-   =========================== */
-.btn-approve {
-    background: #28a745 !important;
-    color: white;
-}
-
-.btn-approve:hover {
-    background: #218838 !important;
-}
-
-.btn-reject {
-    background: #dc3545 !important;
-    color: white;
-}
-
-.btn-reject:hover {
-    background: #c82333 !important;
 }
 
 /* ===========================
