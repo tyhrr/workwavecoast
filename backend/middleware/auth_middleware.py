@@ -33,6 +33,11 @@ class AuthMiddleware:
             'health.quick_health',
             'health.api_info',
             'api.submit_application',
+            'admin.login',
+            'admin.refresh_token',
+            'admin.forgot_password',
+            'admin.reset_password',
+            'admin.validate_recovery_token',
             'static'
         ]
 

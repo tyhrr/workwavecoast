@@ -232,13 +232,11 @@ class SecurityHeaders:
         if self.config['referrer_policy']:
             response.headers['Referrer-Policy'] = self.config['referrer_policy']
 
-        # Permissions-Policy
+        # Permissions-Policy (modern replacement for Feature-Policy)
         if self.config['permissions_policy']:
             response.headers['Permissions-Policy'] = self.config['permissions_policy']
 
-        # Feature-Policy (deprecated but still supported)
-        if self.config['feature_policy']:
-            response.headers['Feature-Policy'] = self.config['feature_policy']
+        # Note: Feature-Policy is deprecated and removed to avoid conflicts with Permissions-Policy
 
         return response
 
