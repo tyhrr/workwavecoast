@@ -164,8 +164,17 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     # Initialize middleware
     try:
         # Setup CORS and Security Headers
+        # Allow requests from the production frontend and local development
+        allowed_origins = [
+            'https://workwavecoast.online',
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            'http://localhost:5000',
+            'http://127.0.0.1:5000'
+        ]
+        
         cors_config = {
-            'origins': app.config.get('CORS_ORIGINS', ['http://localhost:3000', 'http://127.0.0.1:3000']),
+            'origins': app.config.get('CORS_ORIGINS', allowed_origins),
             'methods': ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
             'supports_credentials': True
         }

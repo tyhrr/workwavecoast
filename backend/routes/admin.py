@@ -433,7 +433,7 @@ def update_application(application_id: str):
         # Use application service to update
         if application_service:
             result = application_service.update_application(application_id, data)
-            
+
             if result['success']:
                 # Log the update
                 if audit_service:
@@ -446,7 +446,7 @@ def update_application(application_id: str):
                         ip_address=request.remote_addr,
                         details=data
                     )
-                
+
                 return jsonify(result), 200
             else:
                 return jsonify(result), 400

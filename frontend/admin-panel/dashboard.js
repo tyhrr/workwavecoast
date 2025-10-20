@@ -275,17 +275,17 @@ function createApplicationRow(app) {
             <td class="languages-cell">${languagesText}</td>
             <td class="status-cell">
                 <label class="status-checkbox">
-                    <input type="checkbox" ${isContactado ? 'checked' : ''} 
+                    <input type="checkbox" ${isContactado ? 'checked' : ''}
                            onchange="updateStatus('${app._id || app.id}', 'contactado', this.checked)">
                     <span>Contactado</span>
                 </label>
                 <label class="status-checkbox">
-                    <input type="checkbox" ${isEnProceso ? 'checked' : ''} 
+                    <input type="checkbox" ${isEnProceso ? 'checked' : ''}
                            onchange="updateStatus('${app._id || app.id}', 'en_proceso', this.checked)">
                     <span>En proceso</span>
                 </label>
                 <label class="status-checkbox no-cumple ${isNoCumple ? 'checked' : ''}">
-                    <input type="checkbox" ${isNoCumple ? 'checked' : ''} 
+                    <input type="checkbox" ${isNoCumple ? 'checked' : ''}
                            onchange="updateStatus('${app._id || app.id}', 'no_cumple', this.checked)">
                     <span>No cumple</span>
                 </label>
@@ -294,7 +294,7 @@ function createApplicationRow(app) {
                 <button class="btn-detail" onclick="showExperience('${app._id || app.id}', \`${(app.experiencia || 'Sin información').replace(/`/g, '\\`').replace(/\n/g, '\\n')}\`)">
                     📝 Detalle
                 </button>
-                <button class="btn-cv ${hasCv ? '' : 'disabled'}" 
+                <button class="btn-cv ${hasCv ? '' : 'disabled'}"
                         onclick="${hasCv ? `window.open('${cvUrl}', '_blank')` : 'return false'}"
                         ${!hasCv ? 'disabled' : ''}>
                     📄 Ver CV
@@ -454,7 +454,7 @@ function showExperience(applicationId, experiencia) {
 // Update application status
 async function updateStatus(applicationId, statusField, isChecked) {
     const token = localStorage.getItem('adminToken');
-    
+
     try {
         const response = await fetch(`${API_URL}/api/admin/applications/${applicationId}`, {
             method: 'PATCH',
@@ -472,12 +472,12 @@ async function updateStatus(applicationId, statusField, isChecked) {
         }
 
         const data = await response.json();
-        
+
         if (data.success) {
             // Update the visual state
             const checkbox = event.target;
             const label = checkbox.closest('.status-checkbox');
-            
+
             if (statusField === 'no_cumple') {
                 if (isChecked) {
                     label.classList.add('checked');
@@ -485,7 +485,7 @@ async function updateStatus(applicationId, statusField, isChecked) {
                     label.classList.remove('checked');
                 }
             }
-            
+
             console.log('Estado actualizado correctamente');
         } else {
             throw new Error(data.message || 'Error al actualizar');
