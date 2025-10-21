@@ -279,9 +279,20 @@ async function submitForm(form, messageDiv) {
     });
 
     const result = await response.json();
+    
+    // Log detailed error information
+    console.log('📥 Response status:', response.status);
+    console.log('📥 Response data:', result);
 
     if (!response.ok || !result.success) {
-        const error = new Error(result.message || `Error del servidor (${response.status})`);
+        const errorMsg = result.error || result.message || `Error del servidor (${response.status})`;
+        console.error('❌ Server error details:', {
+            status: response.status,
+            error: result.error,
+            error_type: result.error_type,
+            full_result: result
+        });
+        const error = new Error(errorMsg);
         error.serverError = true;
         throw error;
     }
