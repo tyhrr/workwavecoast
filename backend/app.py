@@ -172,7 +172,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
             'http://localhost:5000',
             'http://127.0.0.1:5000'
         ]
-        
+
         cors_config = {
             'origins': app.config.get('CORS_ORIGINS', allowed_origins),
             'methods': ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],

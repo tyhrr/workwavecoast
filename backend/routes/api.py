@@ -30,7 +30,6 @@ email_service = EmailService(logger)
 
 @api_bp.route('/submit', methods=['GET', 'POST'])
 @api_rate_limit()
-@handle_api_errors
 @log_requests()
 @log_user_actions('submit', 'application')
 def submit_application():
@@ -54,50 +53,59 @@ def submit_application():
 
             logger.info("Received form data", extra={
                 "data_keys": list(form_data.keys()),
-                "data_values": form_data,
                 "files_received": list(files.keys())
             })
 
             # Validate form data using service
-            validation_result = app_service.validate_application_data(form_data)
-            if not validation_result[0]:  # validation failed
-                logger.warning("Application validation failed", extra={
-                    "validation_errors": validation_result[1],
-                    "form_data": form_data
-                })
+            try:
+                validation_result = app_service.validate_application_data(form_data)
+                if not validation_result[0]:  # validation failed
+                    logger.warning("Application validation failed", extra={
+                        "validation_errors": validation_result[1]
+                    })
 
-                if request.is_json:
                     return jsonify({
                         "success": False,
                         "error": validation_result[1],
                         "error_type": "ValidationError"
                     }), 400
-                else:
-                    flash(f"Error en los datos: {validation_result[1]}", 'error')
-                    return redirect(url_for('main.home'))
+            except Exception as e:
+                logger.error(f"Validation error: {e}", exc_info=True)
+                return jsonify({
+                    "success": False,
+                    "error": f"Error en validación: {str(e)}",
+                    "error_type": "ValidationError"
+                }), 400
 
             # Process application with service
-            result = app_service.create_application(form_data, files)
+            try:
+                result = app_service.create_application(form_data, files)
+            except Exception as e:
+                logger.error(f"Application creation error: {e}", exc_info=True)
+                return jsonify({
+                    "success": False,
+                    "error": f"Error al crear aplicación: {str(e)}",
+                    "error_type": "ServerError"
+                }), 500
 
             if result["success"]:
                 logger.info("Application created successfully", extra={
-                    "application_id": result["data"].get("_id"),
-                    "applicant_name": f"{form_data.get('nombre', '')} {form_data.get('apellido', '')}"
+                    "application_id": result["data"].get("_id")
                 })
-
-                if request.is_json:
-                    return jsonify(result), 201
-                else:
-                    flash("¡Aplicación enviada exitosamente!", 'success')
-                    return redirect(url_for('main.home'))
+                return jsonify(result), 201
             else:
                 logger.error("Application creation failed", extra={
-                    "error": result["error"],
-                    "form_data": form_data
+                    "error": result.get("error", "Unknown error")
                 })
+                return jsonify(result), 400
 
-                if request.is_json:
-                    return jsonify(result), 400
+        except Exception as e:
+            logger.error(f"Unexpected error in submit_application: {e}", exc_info=True)
+            return jsonify({
+                "success": False,
+                "error": f"Error inesperado del servidor: {str(e)}",
+                "error_type": "ServerError"
+            }), 500
                 else:
                     flash(f"Error al enviar aplicación: {result['error']}", 'error')
                     return redirect(url_for('main.home'))
