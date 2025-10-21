@@ -106,41 +106,6 @@ def submit_application():
                 "error": f"Error inesperado del servidor: {str(e)}",
                 "error_type": "ServerError"
             }), 500
-                else:
-                    flash(f"Error al enviar aplicación: {result['error']}", 'error')
-                    return redirect(url_for('main.home'))
-
-        except BadRequest as e:
-            logger.error("Bad request in application submission", extra={
-                "error": str(e),
-                "form_data": request.form.to_dict() if request.form else {}
-            })
-
-            if request.is_json:
-                return jsonify({
-                    "success": False,
-                    "error": "Invalid request data",
-                    "error_type": "BadRequest"
-                }), 400
-            else:
-                flash("Datos de solicitud inválidos", 'error')
-                return redirect(url_for('main.home'))
-
-        except Exception as e:
-            logger.error("Unexpected error in application submission", extra={
-                "error": str(e),
-                "form_data": request.form.to_dict() if request.form else {}
-            })
-
-            if request.is_json:
-                return jsonify({
-                    "success": False,
-                    "error": "Internal server error",
-                    "error_type": "InternalError"
-                }), 500
-            else:
-                flash("Error interno del servidor", 'error')
-                return redirect(url_for('main.home'))
 
 
 @api_bp.route('/applications', methods=['GET'])
