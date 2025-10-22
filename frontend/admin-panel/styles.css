@@ -518,6 +518,62 @@ body {
 }
 
 /* ===========================
+   Delete & Selection Styles
+   =========================== */
+.checkbox-cell {
+    width: 40px;
+    text-align: center;
+}
+
+.checkbox-cell input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.btn-danger:disabled {
+    background: #e4606d;
+    cursor: not-allowed;
+}
+
+.btn-delete {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: background 0.3s;
+    margin-top: 0.25rem;
+}
+
+.btn-delete:hover {
+    background: #c82333;
+}
+
+.select-checkbox {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+#deleteSelectedBtn {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+/* ===========================
    Loading & Empty States
    =========================== */
 .loading-state,

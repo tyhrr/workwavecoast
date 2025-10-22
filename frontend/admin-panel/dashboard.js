@@ -8,6 +8,7 @@ const API_URL = window.location.hostname.includes('onrender.com')
 
 let allApplications = [];
 let filteredApplications = [];
+let selectedApplications = new Set();
 
 // Check authentication on page load
 window.addEventListener('DOMContentLoaded', () => {
@@ -53,6 +54,9 @@ function setupEventListeners() {
 
     // Export button
     document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+
+    // Delete selected button
+    document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedApplications);
 }
 
 // Load applications from API
@@ -176,6 +180,9 @@ function displayApplications() {
         <table class="applications-table">
             <thead>
                 <tr>
+                    <th class="checkbox-cell">
+                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)">
+                    </th>
                     <th>Nombre</th>
                     <th>Contacto</th>
                     <th>Nacionalidad</th>
@@ -190,6 +197,9 @@ function displayApplications() {
             </tbody>
         </table>
     `;
+
+    // Update selected checkboxes
+    updateSelectedCheckboxes();
 }
 
 // Create HTML for a single application row
@@ -265,6 +275,10 @@ function createApplicationRow(app) {
 
     return `
         <tr data-id="${app._id || app.id}">
+            <td class="checkbox-cell">
+                <input type="checkbox" class="select-checkbox" data-id="${app._id || app.id}" 
+                       onchange="toggleApplicationSelection('${app._id || app.id}', this.checked)">
+            </td>
             <td class="name-cell">${app.nombre || ''} ${app.apellido || ''}</td>
             <td class="contact-cell">
                 <div>📧 ${app.email || 'N/A'}</div>
@@ -303,6 +317,9 @@ function createApplicationRow(app) {
                         onclick="${hasOtherDocs ? `window.open('${otherDocsUrl}', '_blank')` : 'return false'}"
                         ${!hasOtherDocs ? 'disabled' : ''}>
                     📎 Ver Otros Docs
+                </button>
+                <button class="btn-delete" onclick="deleteApplication('${app._id || app.id}')">
+                    🗑️ Eliminar
                 </button>
             </td>
         </tr>
@@ -498,8 +515,176 @@ async function updateStatus(applicationId, statusField, isChecked) {
     }
 }
 
+// Toggle application selection
+function toggleApplicationSelection(appId, isChecked) {
+    if (isChecked) {
+        selectedApplications.add(appId);
+    } else {
+        selectedApplications.delete(appId);
+    }
+    updateSelectionUI();
+}
+
+// Toggle select all
+function toggleSelectAll(isChecked) {
+    const checkboxes = document.querySelectorAll('.select-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = isChecked;
+        const appId = checkbox.getAttribute('data-id');
+        if (isChecked) {
+            selectedApplications.add(appId);
+        } else {
+            selectedApplications.delete(appId);
+        }
+    });
+    updateSelectionUI();
+}
+
+// Update selection UI
+function updateSelectionUI() {
+    const count = selectedApplications.size;
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const countSpan = document.getElementById('selectedCount');
+
+    if (count > 0) {
+        deleteBtn.style.display = 'inline-block';
+        countSpan.textContent = count;
+    } else {
+        deleteBtn.style.display = 'none';
+    }
+
+    // Update select all checkbox state
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) {
+        const allCheckboxes = document.querySelectorAll('.select-checkbox');
+        const allChecked = allCheckboxes.length > 0 && 
+                          Array.from(allCheckboxes).every(cb => cb.checked);
+        selectAllCheckbox.checked = allChecked;
+    }
+}
+
+// Update selected checkboxes after redraw
+function updateSelectedCheckboxes() {
+    selectedApplications.forEach(appId => {
+        const checkbox = document.querySelector(`.select-checkbox[data-id="${appId}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    });
+    updateSelectionUI();
+}
+
+// Delete single application
+async function deleteApplication(applicationId) {
+    const token = localStorage.getItem('adminToken');
+
+    if (!confirm('⚠️ ¿Estás seguro de que deseas eliminar esta aplicación?\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/admin/applications/${applicationId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('✅ Aplicación eliminada exitosamente');
+            selectedApplications.delete(applicationId);
+            loadApplications(); // Reload applications
+        } else {
+            throw new Error(data.message || 'Error al eliminar la aplicación');
+        }
+    } catch (error) {
+        console.error('Error deleting application:', error);
+        alert(`❌ Error: ${error.message}`);
+    }
+}
+
+// Delete selected applications
+async function deleteSelectedApplications() {
+    const token = localStorage.getItem('adminToken');
+    const count = selectedApplications.size;
+
+    if (count === 0) {
+        alert('No hay aplicaciones seleccionadas');
+        return;
+    }
+
+    if (!confirm(`⚠️ ¿Estás seguro de que deseas eliminar ${count} aplicación(es)?\n\nEsta acción no se puede deshacer.`)) {
+        return;
+    }
+
+    const idsToDelete = Array.from(selectedApplications);
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Show progress
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const originalText = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+
+    try {
+        for (let i = 0; i < idsToDelete.length; i++) {
+            const appId = idsToDelete[i];
+            deleteBtn.innerHTML = `⏳ Eliminando ${i + 1}/${count}...`;
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/applications/${appId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successCount++;
+                    selectedApplications.delete(appId);
+                } else {
+                    errorCount++;
+                    console.error(`Error deleting ${appId}:`, data.message);
+                }
+            } catch (error) {
+                errorCount++;
+                console.error(`Error deleting ${appId}:`, error);
+            }
+        }
+
+        // Show results
+        if (errorCount === 0) {
+            alert(`✅ ${successCount} aplicación(es) eliminada(s) exitosamente`);
+        } else {
+            alert(`⚠️ Proceso completado:\n✅ ${successCount} eliminadas\n❌ ${errorCount} con errores`);
+        }
+
+        // Reset and reload
+        selectedApplications.clear();
+        deleteBtn.innerHTML = originalText;
+        deleteBtn.disabled = false;
+        loadApplications();
+
+    } catch (error) {
+        console.error('Error in bulk delete:', error);
+        alert(`❌ Error: ${error.message}`);
+        deleteBtn.innerHTML = originalText;
+        deleteBtn.disabled = false;
+    }
+}
+
 // Make functions available globally for onclick handlers
 window.approveApplication = approveApplication;
 window.rejectApplication = rejectApplication;
 window.showExperience = showExperience;
 window.updateStatus = updateStatus;
+window.toggleApplicationSelection = toggleApplicationSelection;
+window.toggleSelectAll = toggleSelectAll;
+window.deleteApplication = deleteApplication;
+window.deleteSelectedApplications = deleteSelectedApplications;

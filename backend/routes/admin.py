@@ -465,6 +465,108 @@ def update_application(application_id: str):
             'error_type': 'ServerError'
         }), 500
 
+@admin_bp.route('/applications/<application_id>', methods=['DELETE'])
+@require_admin_auth
+@require_permission('delete')
+def delete_application(application_id: str):
+    """Delete a single application"""
+    try:
+        # Use application service to delete
+        if application_service:
+            result = application_service.delete_application(application_id)
+
+            if result['success']:
+                # Log the deletion
+                if audit_service:
+                    audit_service.log_application_action(
+                        admin_id=g.current_admin_id,
+                        username=g.current_admin['username'],
+                        role=g.current_admin_role,
+                        action='delete',
+                        application_id=application_id,
+                        ip_address=request.remote_addr,
+                        details={'reason': 'Admin deletion'}
+                    )
+
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400 if result.get('error_type') == 'NotFoundError' else 500
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Application service not available',
+                'error_type': 'ServiceError'
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Delete application error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error_type': 'ServerError'
+        }), 500
+
+@admin_bp.route('/applications/bulk-delete', methods=['POST'])
+@require_admin_auth
+@require_permission('delete')
+def bulk_delete_applications():
+    """Delete multiple applications at once"""
+    try:
+        data = request.get_json()
+        if not data or 'application_ids' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'application_ids array is required',
+                'error_type': 'InvalidRequest'
+            }), 400
+
+        application_ids = data['application_ids']
+        
+        if not isinstance(application_ids, list) or len(application_ids) == 0:
+            return jsonify({
+                'success': False,
+                'message': 'application_ids must be a non-empty array',
+                'error_type': 'InvalidRequest'
+            }), 400
+
+        # Use application service to delete multiple
+        if application_service:
+            result = application_service.delete_multiple_applications(application_ids)
+
+            if result['success']:
+                # Log the bulk deletion
+                if audit_service:
+                    audit_service.log_application_action(
+                        admin_id=g.current_admin_id,
+                        username=g.current_admin['username'],
+                        role=g.current_admin_role,
+                        action='bulk_delete',
+                        application_id='multiple',
+                        ip_address=request.remote_addr,
+                        details={
+                            'count': len(application_ids),
+                            'deleted': result.get('data', {}).get('deleted_count', 0)
+                        }
+                    )
+
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 400
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Application service not available',
+                'error_type': 'ServiceError'
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Bulk delete applications error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error_type': 'ServerError'
+        }), 500
+
 @admin_bp.route('/audit/logs', methods=['GET'])
 @require_admin_auth
 @require_permission('read')
