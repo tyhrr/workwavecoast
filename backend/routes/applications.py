@@ -81,9 +81,16 @@ def submit_application():
             if not create_result.get('success'):
                 logger.error("Failed to create application", extra={
                     "error": create_result.get('message'),
+                    "error_type": create_result.get('error_type'),
                     "email": form_data.get('email')
                 })
-                return jsonify(create_result), 400
+                # Return error with full details
+                return jsonify({
+                    "success": False,
+                    "error": create_result.get('message', 'Failed to create application'),
+                    "error_type": create_result.get('error_type', 'ApplicationError'),
+                    "details": create_result.get('details')
+                }), 400
 
             # Send confirmation email
             email_result = email_service.send_confirmation_email(form_data)

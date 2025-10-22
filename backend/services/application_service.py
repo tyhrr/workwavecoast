@@ -173,6 +173,22 @@ class ApplicationService(BaseService):
                     "DuplicateEmailError"
                 )
 
+            # Process files_info to ensure it's serializable (extract only the needed fields)
+            processed_files = {}
+            if files_info:
+                for field_name, file_data in files_info.items():
+                    if isinstance(file_data, dict):
+                        # Extract only serializable fields
+                        processed_files[field_name] = {
+                            'url': file_data.get('url', ''),
+                            'public_id': file_data.get('public_id', ''),
+                            'resource_type': file_data.get('resource_type', ''),
+                            'format': file_data.get('format', ''),
+                            'size': file_data.get('size', 0),
+                            'original_filename': file_data.get('original_filename', ''),
+                            'field_name': file_data.get('field_name', field_name)
+                        }
+
             # Create Application model instance with required fields
             application = Application(
                 nombre=data['nombre'].strip(),
@@ -188,12 +204,21 @@ class ApplicationService(BaseService):
                 salario_esperado=data.get('salario_esperado', '').strip() if data.get('salario_esperado') else None,
                 disponibilidad=data.get('disponibilidad', '').strip() if data.get('disponibilidad') else None,
                 motivacion=data.get('motivacion', '').strip() if data.get('motivacion') else None,
-                # Files info
-                files=files_info if files_info else {}
+                # Files info - use processed files
+                files=processed_files
             )
 
             # Convert to database format
-            app_data = application.to_dict()
+            try:
+                app_data = application.to_dict()
+            except Exception as serialize_error:
+                self.logger.error(f"Error serializing application data: {serialize_error}")
+                self.logger.error(f"Files info type: {type(processed_files)}")
+                self.logger.error(f"Files info content: {processed_files}")
+                return self.error_response(
+                    f"Error serializing application data: {str(serialize_error)}",
+                    "SerializationError"
+                )
 
             # Insert into database
             result = self.collection.insert_one(app_data)

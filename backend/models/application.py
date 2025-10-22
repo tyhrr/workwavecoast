@@ -145,10 +145,20 @@ class Application:
 
         # Add files as JSON string (compatible with current database format)
         if self.files:
-            files_dict = {
-                field_name: file_info.to_dict()
-                for field_name, file_info in self.files.items()
-            }
+            files_dict = {}
+            for field_name, file_info in self.files.items():
+                # Handle both ApplicationFile objects and plain dictionaries
+                if isinstance(file_info, ApplicationFile):
+                    files_dict[field_name] = file_info.to_dict()
+                elif isinstance(file_info, dict):
+                    # Already a dictionary, just copy the serializable fields
+                    files_dict[field_name] = {
+                        k: v for k, v in file_info.items()
+                        if not callable(v) and not hasattr(v, 'read')  # Exclude file objects and callables
+                    }
+                else:
+                    # Skip non-serializable objects
+                    continue
             data['files'] = json.dumps(files_dict)
         else:
             data['files'] = "{}"
