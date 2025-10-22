@@ -567,7 +567,21 @@ class EmailService(BaseService):
     def send_confirmation_email(self, candidate_data: Dict[str, Any]) -> Dict[str, Any]:
         """Send confirmation email to candidate"""
         try:
+            self.logger.info(f"Creating confirmation email for {candidate_data.get('email')}")
+            
+            # Check if email config is loaded
+            if not self.email_config:
+                self.logger.error("Email configuration not loaded")
+                return self.error_response(
+                    "Email configuration not available",
+                    "ConfigurationError"
+                )
+            
+            # Log config status (without passwords)
+            self.logger.info(f"Email config loaded: server={self.email_config.get('smtp_server')}, port={self.email_config.get('smtp_port')}, from={self.email_config.get('from_email')}")
+            
             email_content = self.create_confirmation_email(candidate_data)
+            self.logger.info(f"Email content created, subject: {email_content['subject']}")
 
             result = self.send_email(
                 to_email=candidate_data['email'],
@@ -582,10 +596,15 @@ class EmailService(BaseService):
                     "candidate_name": f"{candidate_data.get('nombre', '')} {candidate_data.get('apellido', '')}",
                     "puesto": candidate_data.get('puesto', '')
                 })
+            else:
+                self.logger.error(f"send_email returned failure: {result}")
 
             return result
 
         except Exception as e:
+            self.logger.error(f"Exception in send_confirmation_email: {str(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
             return self.handle_error("send_confirmation_email", e, {
                 "candidate_email": candidate_data.get('email')
             })

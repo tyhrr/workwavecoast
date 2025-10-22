@@ -93,18 +93,37 @@ def submit_application():
                 }), 400
 
             # Send confirmation email
+            logger.info("Attempting to send confirmation email", extra={
+                "email": form_data.get('email'),
+                "nombre": form_data.get('nombre')
+            })
+            
             email_result = email_service.send_confirmation_email(form_data)
-            if not email_result.get('success'):
-                logger.warning("Failed to send confirmation email", extra={
-                    "error": email_result.get('message'),
+            
+            if email_result.get('success'):
+                logger.info("Confirmation email sent successfully", extra={
                     "email": form_data.get('email')
+                })
+            else:
+                logger.error("Failed to send confirmation email", extra={
+                    "error": email_result.get('message'),
+                    "error_type": email_result.get('error_type'),
+                    "email": form_data.get('email'),
+                    "full_result": email_result
                 })
 
             # Send admin notification
+            logger.info("Attempting to send admin notification")
+            
             admin_email_result = email_service.send_admin_notification(form_data, files_info)
-            if not admin_email_result.get('success'):
-                logger.warning("Failed to send admin notification", extra={
-                    "error": admin_email_result.get('message')
+            
+            if admin_email_result.get('success'):
+                logger.info("Admin notification sent successfully")
+            else:
+                logger.error("Failed to send admin notification", extra={
+                    "error": admin_email_result.get('message'),
+                    "error_type": admin_email_result.get('error_type'),
+                    "full_result": admin_email_result
                 })
 
             logger.info("Application submitted successfully", extra={
