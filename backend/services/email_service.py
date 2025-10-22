@@ -503,6 +503,7 @@ class EmailService(BaseService):
             message["Subject"] = subject
             message["From"] = self.email_config['from_email']
             message["To"] = to_email
+            message.set_charset('utf-8')
 
             if cc_emails:
                 message["Cc"] = ", ".join(cc_emails)
@@ -526,12 +527,16 @@ class EmailService(BaseService):
                 if bcc_emails:
                     recipients.extend(bcc_emails)
 
-                # Send email
-                server.sendmail(
-                    self.email_config['from_email'],
-                    recipients,
-                    message.as_string()
-                )
+                # Send email - use as_bytes() for proper encoding
+                try:
+                    server.send_message(message)
+                except AttributeError:
+                    # Fallback for older Python versions
+                    server.sendmail(
+                        self.email_config['from_email'],
+                        recipients,
+                        message.as_bytes()
+                    )
 
             self.log_operation("send_email", {
                 "to_email": to_email,
