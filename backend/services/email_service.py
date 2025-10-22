@@ -54,7 +54,7 @@ class EmailService(BaseService):
             self.logger.error(f"Failed to load email config: {e}")
             self.email_config = None
 
-    def _create_smtp_connection(self) -> smtplib.SMTP_SSL:
+    def _create_smtp_connection(self):
         """Create and authenticate SMTP connection"""
         if not self.email_config:
             raise Exception("Email configuration not loaded")
@@ -62,12 +62,21 @@ class EmailService(BaseService):
         # Create secure SSL context
         context = ssl.create_default_context()
 
-        # Connect to Gmail SMTP server
-        server = smtplib.SMTP_SSL(
-            self.email_config['smtp_server'],
-            self.email_config['smtp_port'],
-            context=context
-        )
+        # Use SMTP with TLS (not SMTP_SSL) for port 587
+        if self.email_config['smtp_port'] == 587:
+            # SMTP with STARTTLS (port 587)
+            server = smtplib.SMTP(
+                self.email_config['smtp_server'],
+                self.email_config['smtp_port']
+            )
+            server.starttls(context=context)
+        else:
+            # SMTP_SSL for port 465
+            server = smtplib.SMTP_SSL(
+                self.email_config['smtp_server'],
+                self.email_config['smtp_port'],
+                context=context
+            )
 
         # Login with credentials
         server.login(
