@@ -276,7 +276,7 @@ function createApplicationRow(app) {
     return `
         <tr data-id="${app._id || app.id}">
             <td class="checkbox-cell">
-                <input type="checkbox" class="select-checkbox" data-id="${app._id || app.id}" 
+                <input type="checkbox" class="select-checkbox" data-id="${app._id || app.id}"
                        onchange="toggleApplicationSelection('${app._id || app.id}', this.checked)">
             </td>
             <td class="name-cell">${app.nombre || ''} ${app.apellido || ''}</td>
@@ -557,7 +557,7 @@ function updateSelectionUI() {
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     if (selectAllCheckbox) {
         const allCheckboxes = document.querySelectorAll('.select-checkbox');
-        const allChecked = allCheckboxes.length > 0 && 
+        const allChecked = allCheckboxes.length > 0 &&
                           Array.from(allCheckboxes).every(cb => cb.checked);
         selectAllCheckbox.checked = allChecked;
     }

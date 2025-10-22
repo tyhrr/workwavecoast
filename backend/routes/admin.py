@@ -477,16 +477,19 @@ def delete_application(application_id: str):
 
             if result['success']:
                 # Log the deletion
-                if audit_service:
-                    audit_service.log_application_action(
-                        admin_id=g.current_admin_id,
-                        username=g.current_admin['username'],
-                        role=g.current_admin_role,
-                        action='delete',
-                        application_id=application_id,
-                        ip_address=request.remote_addr,
-                        details={'reason': 'Admin deletion'}
-                    )
+                try:
+                    if audit_service:
+                        audit_service.log_application_action(
+                            admin_id=g.current_admin_id,
+                            username=g.current_admin['username'],
+                            role=g.current_admin_role,
+                            action='delete',
+                            application_id=application_id,
+                            ip_address=request.remote_addr,
+                            details={'reason': 'Admin deletion'}
+                        )
+                except Exception as audit_error:
+                    logging.warning(f"Audit logging failed: {audit_error}")
 
                 return jsonify(result), 200
             else:
@@ -500,9 +503,11 @@ def delete_application(application_id: str):
 
     except Exception as e:
         logging.error(f"Delete application error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': 'Internal server error',
+            'message': f'Internal server error: {str(e)}',
             'error_type': 'ServerError'
         }), 500
 
@@ -521,7 +526,7 @@ def bulk_delete_applications():
             }), 400
 
         application_ids = data['application_ids']
-        
+
         if not isinstance(application_ids, list) or len(application_ids) == 0:
             return jsonify({
                 'success': False,
