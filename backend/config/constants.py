@@ -66,8 +66,8 @@ VALIDATION_PATTERNS = {
     'email': EMAIL_PATTERN,
     'nacionalidad': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,50}$'),
     'puesto': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-\/]{2,100}$'),
-    'ingles_nivel': re.compile(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'\-]{2,20}$'),
-    'experiencia': re.compile(r'^[\s\S]{10,2000}$'),  # Allow any characters, 10-2000 chars
+    'ingles_nivel': re.compile(r'^.{1,50}$'),  # Accept any character, 1-50 chars
+    'experiencia': re.compile(r'^.{1,5000}$', re.DOTALL),  # Accept any character including newlines, 1-5000 chars
 }
 
 # Phone validation patterns by country

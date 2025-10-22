@@ -279,7 +279,7 @@ async function submitForm(form, messageDiv) {
     });
 
     const result = await response.json();
-    
+
     // Log detailed error information
     console.log('📥 Response status:', response.status);
     console.log('📥 Response data:', result);
