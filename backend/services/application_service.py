@@ -173,28 +173,24 @@ class ApplicationService(BaseService):
                     "DuplicateEmailError"
                 )
 
-            # Create Application model instance
-            application = Application()
-
-            # Set basic fields
-            for field in ['nombre', 'apellido', 'email', 'telefono', 'nacionalidad',
-                         'puesto', 'ingles_nivel', 'experiencia']:
-                if field in data:
-                    setattr(application, field, data[field].strip())
-
-            # Set optional fields
-            for field in ['puestos_adicionales', 'salario_esperado', 'disponibilidad', 'motivacion']:
-                if field in data and data[field]:
-                    setattr(application, field, data[field].strip())
-
-            # Set files info if provided
-            if files_info:
-                application.files = files_info
-
-                # Update file flags
-                application.has_cv = 'cv' in files_info and files_info['cv'].get('url')
-                application.has_cover_letter = 'carta_presentacion' in files_info and files_info['carta_presentacion'].get('url')
-                application.files_count = len([f for f in files_info.values() if f.get('url')])
+            # Create Application model instance with required fields
+            application = Application(
+                nombre=data['nombre'].strip(),
+                apellido=data['apellido'].strip(),
+                email=data['email'].strip(),
+                telefono=data['telefono'].strip(),
+                nacionalidad=data['nacionalidad'].strip(),
+                puesto=data['puesto'].strip(),
+                ingles_nivel=data['ingles_nivel'].strip(),
+                experiencia=data['experiencia'].strip(),
+                # Optional fields
+                puestos_adicionales=data.get('puestos_adicionales', '').strip() if data.get('puestos_adicionales') else None,
+                salario_esperado=data.get('salario_esperado', '').strip() if data.get('salario_esperado') else None,
+                disponibilidad=data.get('disponibilidad', '').strip() if data.get('disponibilidad') else None,
+                motivacion=data.get('motivacion', '').strip() if data.get('motivacion') else None,
+                # Files info
+                files=files_info if files_info else {}
+            )
 
             # Convert to database format
             app_data = application.to_dict()
