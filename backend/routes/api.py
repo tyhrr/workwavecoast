@@ -92,6 +92,44 @@ def submit_application():
                 logger.info("Application created successfully", extra={
                     "application_id": result["data"].get("_id")
                 })
+
+                # Send confirmation email
+                logger.info("=" * 80)
+                logger.info("STARTING EMAIL SEND PROCESS")
+                logger.info(f"Target email: {form_data.get('email')}")
+                logger.info(f"Candidate: {form_data.get('nombre')} {form_data.get('apellido')}")
+                logger.info("=" * 80)
+
+                try:
+                    email_result = email_service.send_confirmation_email(form_data)
+                    logger.info("EMAIL SEND COMPLETED")
+                    logger.info(f"Email result: {email_result}")
+
+                    if email_result.get('success'):
+                        logger.info("Confirmation email sent successfully", extra={
+                            "email": form_data.get('email')
+                        })
+                    else:
+                        logger.error("Failed to send confirmation email", extra={
+                            "error": email_result.get('message'),
+                            "email": form_data.get('email')
+                        })
+                except Exception as email_error:
+                    logger.error(f"Exception sending confirmation email: {email_error}", exc_info=True)
+
+                # Send admin notification
+                logger.info("Attempting to send admin notification")
+                try:
+                    admin_email_result = email_service.send_admin_notification(form_data, {})
+                    if admin_email_result.get('success'):
+                        logger.info("Admin notification sent successfully")
+                    else:
+                        logger.error("Failed to send admin notification", extra={
+                            "error": admin_email_result.get('message')
+                        })
+                except Exception as admin_email_error:
+                    logger.error(f"Exception sending admin notification: {admin_email_error}", exc_info=True)
+
                 return jsonify(result), 201
             else:
                 logger.error("Application creation failed", extra={
