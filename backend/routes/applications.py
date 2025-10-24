@@ -100,7 +100,7 @@ def submit_application():
             logger.info("=" * 80)
 
             email_result = email_service.send_confirmation_email(form_data)
-            
+
             logger.info("EMAIL SEND COMPLETED")
             logger.info(f"Email result: {email_result}")
 

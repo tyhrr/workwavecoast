@@ -198,7 +198,7 @@ class EmailService(BaseService):
                     <div class="next-steps">
                         <h3>Próximos Pasos:</h3>
                         <ul>
-                            <li>Nuestro equipo de Recursos Humanos revisará tu aplicación en las próximas 24-48 horas</li>
+                            <li>Nuestro equipo de Recursos Humanos revisará tu aplicación a detalle</li>
                             <li>Si tu perfil cumple con los requisitos del puesto, te contactaremos para coordinar una entrevista</li>
                             <li>Mantente atento a tu email y teléfono para futuras comunicaciones</li>
                         </ul>
@@ -235,7 +235,7 @@ class EmailService(BaseService):
         Fecha y hora: {datetime.now(timezone.utc).strftime('%d/%m/%Y a las %H:%M UTC')}
 
         PRÓXIMOS PASOS:
-        - Nuestro equipo de Recursos Humanos revisará tu aplicación en las próximas 24-48 horas
+        - Nuestro equipo de Recursos Humanos revisará tu aplicación a detalle
         - Si tu perfil cumple con los requisitos del puesto, te contactaremos para coordinar una entrevista
         - Mantente atento a tu email y teléfono para futuras comunicaciones
 
@@ -578,7 +578,7 @@ class EmailService(BaseService):
                     "Email configuration not available",
                     "ConfigurationError"
                 )
-            
+
             print(f"[EMAIL SERVICE] Config loaded: {self.email_config.get('smtp_server')}:{self.email_config.get('smtp_port')}")
 
             # Log config status (without passwords)
