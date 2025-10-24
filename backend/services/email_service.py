@@ -567,22 +567,27 @@ class EmailService(BaseService):
     def send_confirmation_email(self, candidate_data: Dict[str, Any]) -> Dict[str, Any]:
         """Send confirmation email to candidate"""
         try:
-            self.logger.info(f"Creating confirmation email for {candidate_data.get('email')}")
-            
+            print(f"[EMAIL SERVICE] ENTERED send_confirmation_email for {candidate_data.get('email')}")
+            self.logger.info(f"[EMAIL SERVICE] Creating confirmation email for {candidate_data.get('email')}")
+
             # Check if email config is loaded
             if not self.email_config:
-                self.logger.error("Email configuration not loaded")
+                print("[EMAIL SERVICE] ERROR: Email configuration not loaded")
+                self.logger.error("[EMAIL SERVICE] Email configuration not loaded")
                 return self.error_response(
                     "Email configuration not available",
                     "ConfigurationError"
                 )
             
+            print(f"[EMAIL SERVICE] Config loaded: {self.email_config.get('smtp_server')}:{self.email_config.get('smtp_port')}")
+
             # Log config status (without passwords)
             self.logger.info(f"Email config loaded: server={self.email_config.get('smtp_server')}, port={self.email_config.get('smtp_port')}, from={self.email_config.get('from_email')}")
-            
+
             email_content = self.create_confirmation_email(candidate_data)
             self.logger.info(f"Email content created, subject: {email_content['subject']}")
 
+            print(f"[EMAIL SERVICE] Calling send_email() to {candidate_data['email']}")
             result = self.send_email(
                 to_email=candidate_data['email'],
                 subject=email_content['subject'],
@@ -590,20 +595,26 @@ class EmailService(BaseService):
                 text_content=email_content['text_content']
             )
 
+            print(f"[EMAIL SERVICE] send_email() returned: {result}")
+
             if result.get('success'):
+                print(f"[EMAIL SERVICE] SUCCESS - Email sent to {candidate_data['email']}")
                 self.log_operation("send_confirmation_email", {
                     "candidate_email": candidate_data['email'],
                     "candidate_name": f"{candidate_data.get('nombre', '')} {candidate_data.get('apellido', '')}",
                     "puesto": candidate_data.get('puesto', '')
                 })
             else:
+                print(f"[EMAIL SERVICE] FAILURE - send_email returned: {result}")
                 self.logger.error(f"send_email returned failure: {result}")
 
             return result
 
         except Exception as e:
+            print(f"[EMAIL SERVICE] EXCEPTION: {str(e)}")
             self.logger.error(f"Exception in send_confirmation_email: {str(e)}")
             import traceback
+            print(f"[EMAIL SERVICE] TRACEBACK: {traceback.format_exc()}")
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             return self.handle_error("send_confirmation_email", e, {
                 "candidate_email": candidate_data.get('email')

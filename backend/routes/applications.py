@@ -93,13 +93,17 @@ def submit_application():
                 }), 400
 
             # Send confirmation email
-            logger.info("Attempting to send confirmation email", extra={
-                "email": form_data.get('email'),
-                "nombre": form_data.get('nombre')
-            })
-            
+            logger.info("=" * 80)
+            logger.info("STARTING EMAIL SEND PROCESS")
+            logger.info(f"Target email: {form_data.get('email')}")
+            logger.info(f"Candidate: {form_data.get('nombre')} {form_data.get('apellido')}")
+            logger.info("=" * 80)
+
             email_result = email_service.send_confirmation_email(form_data)
             
+            logger.info("EMAIL SEND COMPLETED")
+            logger.info(f"Email result: {email_result}")
+
             if email_result.get('success'):
                 logger.info("Confirmation email sent successfully", extra={
                     "email": form_data.get('email')
@@ -114,9 +118,9 @@ def submit_application():
 
             # Send admin notification
             logger.info("Attempting to send admin notification")
-            
+
             admin_email_result = email_service.send_admin_notification(form_data, files_info)
-            
+
             if admin_email_result.get('success'):
                 logger.info("Admin notification sent successfully")
             else:
